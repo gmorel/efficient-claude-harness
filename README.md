@@ -5,15 +5,24 @@ Every component is namespaced, so the agents appear as `harness:ai-coder`, `harn
 
 ```mermaid
 flowchart TD
-  M["Main Claude"] -. observes .-> S["claim-sentinel"]
-  M --> E["code-explorer"]
-  M --> B["browser-qa"]
-  M --> A["ai-coder"]
-  M --> H["ai-coder-high"]
-  A -->|"composer-run.mjs"| C["Cursor Composer"]
-  A -->|"fallback"| D["Delegation service"]
-  H --> D
+  M["Main Claude · your session model"] -. observes .-> S["claim-sentinel · haiku"]
+  M --> E["code-explorer · haiku"]
+  M --> B["browser-qa · sonnet"]
+  M --> R["task-reviewer · opus · high"]
+  M --> A["ai-coder · haiku"]
+  M --> H["ai-coder-high · haiku"]
+  M --> X["delegate-to-openai-astra · haiku"]
+  A -->|"composer-run.mjs"| C["Cursor Composer 2.5"]
+  A -.->|"shadow, 1 run in 5"| SH["opus · medium"]
+  A -->|"fallback: sonnet · medium"| D["Delegation service"]
+  A -->|"check = ESCALATE"| G["composer-merger · sonnet"]
+  H -->|"opus · high"| D
+  X -->|"codex CLI · effort per brief"| O["GPT-6-Astra"]
 ```
+
+Labels read `agent · model · effort`.
+Agents with no effort run at the default; Haiku has no effort setting.
+The `haiku` lanes are thin wrappers: the model on the arrow does the real work.
 
 ## What is inside
 
