@@ -1,0 +1,12 @@
+# Runtime output never belongs in the repo
+.delegate/
+.playwright-cli/
+node_modules/
+*.jsonl
+*.log
+.DS_Store
+# Credentials
+.env
+.env.*
+# Editor
+.idea/
