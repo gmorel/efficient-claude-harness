@@ -10,7 +10,7 @@
 // Every child gets a minimal environment and a temp HOME, so the result does not depend on the caller's HOME or ERRAND_ROUTER_CONFIG.
 // Prove it: env -u ERRAND_ROUTER_CONFIG HOME="$(mktemp -d)" node tests/plugin/run.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, rmSync, existsSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
@@ -86,6 +86,7 @@ function buildFixtures() {
   put(path.join(REPO, 'src', 'd.ts'), lines(5, 'd'));
   put(path.join(REPO, 'src', 'many.ts'), 'foo();\nbar();\n'.repeat(8));
   put(path.join(REPO, 'README.md'), '# fixture\n');
+  put(path.join(REPO, '.env'), 'KEY=old\n');
   git('-c', 'init.defaultBranch=main', 'init', '-q', REPO);
   git('-C', REPO, 'add', '-A');
   git('-C', REPO, '-c', 'user.name=h', '-c', 'user.email=h@h', 'commit', '-q', '-m', 'fixture');
@@ -95,6 +96,7 @@ function buildFixtures() {
 // ---------------------------------------------------------------- Jev stub
 
 const answer = (choice, confidence) => ({ status: 200, body: JSON.stringify({ answers: { voie: { choice, confidence, probabilities: { [choice]: confidence } } }, usage: { input_tokens: 1, output_tokens: 1 } }) });
+const answerCoder = (choice, confidence) => ({ status: 200, body: JSON.stringify({ answers: { lane: { choice, confidence, probabilities: { [choice]: confidence } } }, usage: { input_tokens: 1, output_tokens: 1 } }) });
 const JEV_EXPLORE_92 = answer('explore', 0.92);
 const stub = { response: JEV_EXPLORE_92, bodies: [] };
 const server = http.createServer((req, res) => {
@@ -245,7 +247,11 @@ const critKeys = steps => steps.flatMap(s => s.bodies).map(b => Object.keys(b.bo
 const sentKeys = (steps, want) => { const k = critKeys(steps); return k.length === 1 && k[0] === [...want].sort().join(','); };
 const callsOf = steps => steps.reduce((s, x) => s + x.bodies.length, 0);
 const GENERIC_LANES = ['explore', 'main'];
+const CODER_LANES = ['ai-coder', 'ai-coder-high', 'main'];
 const NONE_CRITERION = { when: 'no lane in the list fits this call' };
+const coderCritKeys = steps => steps.flatMap(s => s.bodies).map(b => Object.keys(b.body?.questions?.lane?.criteria || {}).sort().join(','));
+const sentCoderKeys = (steps, want) => { const k = coderCritKeys(steps); return k.length === 1 && k[0] === [...want].sort().join(','); };
+const RG_JEV_ENV = { ROUTE_GATE_JEV: '1', TYPESAFE_AI_JEV_API_KEY: DUMMY_KEY };
 
 // ---------------------------------------------------------------- the checks
 
@@ -283,6 +289,72 @@ const CHECKS = [
   { id: 'po-rg-prefix-empty', hook: 'rg', what: 'ROUTE_GATE_AGENT_PREFIX empty: deny reason names ai-coder',
     env: { ROUTE_GATE: 'deny', ROUTE_GATE_AGENT_PREFIX: '' }, profile: 'default', steps: [write(R('src/a.ts'), 20)],
     check: s => s[0].decision.kind === 'deny' && s[0].decision.text.includes('through the ai-coder agent') && !s[0].decision.text.includes('harness:') },
+  { id: 'po-rg-jev-no-key', hook: 'rg', what: 'ROUTE_GATE_JEV=1 without a key: no stub call, same output as default (warn at 20 lines)',
+    env: { ...RG_JEV_ENV, TYPESAFE_AI_JEV_API_KEY: null }, profile: 'default', steps: [write(R('src/a.ts'), 20)],
+    check: async (s, c) => {
+      const d = await runSide({ ...c, id: c.id + '-default-twin', env: {} }, 'default');
+      return callsOf(s) === 0 && s[0].decision.kind === 'warn' && stepEqual(s[0], d[0]);
+    } },
+  { id: 'po-rg-jev-main-warn', hook: 'rg', what: 'ROUTE_GATE_JEV=1, stub main 0.9 in warn mode: silent pass, ledger jev_action jev-main-silent',
+    env: RG_JEV_ENV, profile: 'default', jev: answerCoder('main', 0.9), steps: [write(R('src/a.ts'), 20)],
+    check: s => callsOf(s) === 1 && sentCoderKeys(s, [...CODER_LANES, 'none']) && s[0].decision.kind === 'silent' && s[0].ledger[0]?.jev_action === 'jev-main-silent' && s[0].ledger[0]?.verdict === 'pass' },
+  { id: 'po-rg-jev-upgrade-high', hook: 'rg', what: 'ROUTE_GATE_JEV=1, stub ai-coder-high 0.9 on .ts: warn names ech:ai-coder-high',
+    env: RG_JEV_ENV, profile: 'default', jev: answerCoder('ai-coder-high', 0.9), steps: [write(R('src/a.ts'), 20)],
+    check: s => s[0].decision.kind === 'warn' && s[0].decision.text.includes('ech:ai-coder-high') && s[0].ledger[0]?.jev_action === 'upgrade-high' },
+  { id: 'po-rg-jev-guarded', hook: 'rg', what: 'ROUTE_GATE_JEV=1, stub ai-coder on guarded .env: still ech:ai-coder-high',
+    env: RG_JEV_ENV, profile: 'default', jev: answerCoder('ai-coder', 0.9), steps: [write(R('.env'), 2)],
+    check: s => s[0].decision.kind === 'warn' && s[0].decision.text.includes('ech:ai-coder-high') && s[0].ledger[0]?.jev_action === 'keep-guarded' },
+  { id: 'po-rg-jev-low-conf', hook: 'rg', what: 'ROUTE_GATE_JEV=1, low confidence: unchanged warn',
+    env: RG_JEV_ENV, profile: 'default', jev: answerCoder('main', 0.5), steps: [write(R('src/a.ts'), 20)],
+    check: async (s, c) => {
+      const d = await runSide({ ...c, id: c.id + '-no-jev', env: {} }, 'default');
+      return s[0].ledger[0]?.jev_action === 'low-confidence'
+        && s[0].decision.kind === d[0].decision.kind && s[0].decision.text === d[0].decision.text;
+    } },
+  { id: 'po-rg-jev-dead-url', hook: 'rg', what: 'ROUTE_GATE_JEV=1, JEV_URL on a closed port: unchanged warn, exit 0, under 3 s',
+    env: { ...RG_JEV_ENV, JEV_URL: DEAD_URL }, profile: 'default', steps: [write(R('src/a.ts'), 20)],
+    check: async (s, c) => {
+      const d = await runSide({ ...c, id: c.id + '-no-jev', env: {} }, 'default');
+      return s[0].rc === 0 && s[0].ms < 3000 && s[0].ledger[0]?.jev_action === 'jev-null'
+        && s[0].decision.kind === d[0].decision.kind && s[0].decision.text === d[0].decision.text;
+    } },
+  { id: 'po-rg-jev-deny-main', hook: 'rg', what: 'ROUTE_GATE_JEV=1 in deny mode, stub main 0.9: still deny',
+    env: { ...RG_JEV_ENV, ROUTE_GATE: 'deny' }, profile: 'default', jev: answerCoder('main', 0.9), steps: [write(R('src/a.ts'), 20)],
+    check: s => s[0].decision.kind === 'deny' && s[0].ledger[0]?.jev_action === 'keep-deny' },
+  { id: 'po-rg-jev-pass', hook: 'rg', what: 'ROUTE_GATE_JEV=1, small edit (pass): no stub call',
+    env: RG_JEV_ENV, profile: 'default', steps: [write(R('src/a.ts'), 3)],
+    check: s => callsOf(s) === 0 && s[0].decision.kind === 'silent' && s[0].ledger[0]?.verdict === 'pass' },
+  { id: 'po-rg-jev-no-leak', hook: 'rg', what: 'ROUTE_GATE_JEV=1: the key never appears in stdout, stderr or the ledger',
+    env: RG_JEV_ENV, profile: 'default', jev: answerCoder('ai-coder', 0.9), steps: [write(R('src/a.ts'), 20)],
+    check: s => s.every(x => !x.raw.includes(DUMMY_KEY) && !JSON.stringify(x.ledger).includes(DUMMY_KEY) && x.bodies.every(b => !b.hasKey)) },
+  { id: 'po-rg-jev-send-text-off', hook: 'rg', what: 'ROUTE_GATE_JEV default: stub state has no new_text',
+    env: RG_JEV_ENV, profile: 'default', jev: answerCoder('ai-coder', 0.9), steps: [write(R('src/a.ts'), 20)],
+    check: s => callsOf(s) === 1 && s[0].bodies[0]?.body?.state?.new_text === undefined },
+  { id: 'po-rg-jev-send-text-on', hook: 'rg', what: 'ROUTE_GATE_JEV_SEND_TEXT=1: stub state includes redacted new_text (truncated)',
+    env: { ...RG_JEV_ENV, ROUTE_GATE_JEV_SEND_TEXT: '1' }, profile: 'default', jev: answerCoder('ai-coder', 0.9),
+    steps: [write(R('src/a.ts'), 20)],
+    check: s => {
+      const t = s[0].bodies[0]?.body?.state?.new_text;
+      return typeof t === 'string' && t.length > 0 && t.length <= 400;
+    } },
+  { id: 'po-rg-jev-redact-before-slice', hook: 'rg', what: 'ROUTE_GATE_JEV_SEND_TEXT=1: token straddling char 400 does not leak a fragment into the stub body',
+    env: { ...RG_JEV_ENV, ROUTE_GATE_JEV_SEND_TEXT: '1' }, profile: 'default', jev: answerCoder('ai-coder', 0.9),
+    steps: [(() => {
+      const secret = 'sk_test_' + 'Z'.repeat(28);
+      const pad = 'p'.repeat(392);
+      const content = pad + secret + '\n' + lines(19);
+      return { tool: 'Write', input: { file_path: R('src/a.ts'), content } };
+    })()],
+    check: s => {
+      const secret = 'sk_test_' + 'Z'.repeat(28);
+      const raw = JSON.stringify(s[0].bodies[0]?.body ?? {});
+      for (let len = secret.length; len >= 8; len--) {
+        for (let i = 0; i <= secret.length - len; i++) {
+          if (raw.includes(secret.slice(i, i + len))) return false;
+        }
+      }
+      return callsOf(s) === 1;
+    } },
   { id: 'po-config-absent', hook: 'er', what: 'ERRAND_ROUTER_CONFIG names a missing file: no error, request criteria are the generic lanes + none',
     env: { ERRAND_ROUTER_CONFIG: path.join(MISSING, 'errand-router.json') }, profile: 'plugin', steps: run(3),
     check: s => s.every(x => x.rc === 0) && sentKeys(s, [...GENERIC_LANES, 'none']) },
@@ -294,11 +366,95 @@ const results = [];
 let exit = 0;
 try {
   buildFixtures();
+  const { decideCoderJev } = await import(path.join(HOOKS, 'lib', 'route-gate-jev.mjs'));
+  const unitCoderJev = () => {
+    assertCoder(d => d.action === 'jev-null', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: false, jev: null }));
+    assertCoder(d => d.action === 'low-confidence', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: false, jev: { choice: 'main', confidence: 0.5 } }));
+    assertCoder(d => d.action === 'jev-main-silent' && d.verdict === 'pass' && d.suppressOutput, decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: false, jev: { choice: 'main', confidence: 0.9 } }));
+    assertCoder(d => d.action === 'keep-deny', decideCoderJev({ verdict: 'deny', mode: 'deny', guarded: false, jev: { choice: 'main', confidence: 0.9 } }));
+    assertCoder(d => d.action === 'keep-guarded' && d.target === 'ai-coder-high', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: true, jev: { choice: 'ai-coder', confidence: 0.9 } }));
+    assertCoder(d => d.action === 'keep-guarded' && d.target === 'ai-coder-high' && d.verdict === 'warn', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: true, jev: { choice: 'main', confidence: 0.9 } }));
+    assertCoder(d => d.action === 'upgrade-high' && d.target === 'ai-coder-high', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: false, jev: { choice: 'ai-coder-high', confidence: 0.9 } }));
+    assertCoder(d => d.action === 'agree' && d.target === 'ai-coder', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: false, jev: { choice: 'ai-coder', confidence: 0.9 } }));
+    assertCoder(d => d.action === 'keep-none' && d.verdict === 'warn', decideCoderJev({ verdict: 'warn', mode: 'warn', guarded: false, jev: { choice: 'none', confidence: 0.9 } }));
+    return true;
+  };
+  function assertCoder(pred, d) { if (!pred(d)) throw new Error('decideCoderJev unit check failed'); }
+  results.push(`${unitCoderJev() ? 'PASS' : 'FAIL'} decideCoderJev — pure function unit checks`);
+
   for (const c of CHECKS) {
     const steps = await runSide(c, c.profile);
     let ok = false;
     try { ok = !steps.some(x => x.bodies.some(b => b.hasKey)) && await c.check(steps, c); } catch { ok = false; }
     results.push(`${ok ? 'PASS' : 'FAIL'} ${c.id} — ${c.what}`);
+  }
+
+  // Symlinked hook path and symlinked repo cwd: must still warn and append a ledger line.
+  try {
+    const symRoot = path.join(TMP, 'runs', 'default', 'po-rg-symlink-hook');
+    mkdirSync(symRoot, { recursive: true });
+    const hookLink = path.join(symRoot, 'route-gate-symlink.mjs');
+    const repoLink = path.join(symRoot, 'repo-symlink');
+    try { symlinkSync(RG, hookLink); } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
+    try { symlinkSync(REPO, repoLink); } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
+    const symEnv = childEnv('default', symRoot, {});
+    const symInp = JSON.stringify({
+      session_id: SID_RG, prompt_id: 'p-symlink', cwd: repoLink, hook_event_name: 'PreToolUse',
+      tool_name: 'Write', tool_input: { file_path: path.join(repoLink, 'src', 'a.ts'), content: lines(20) }, tool_use_id: 'toolu_symlink',
+    });
+    const symR = await runNode(hookLink, symInp, symEnv, repoLink);
+    const symLedger = readLedger(path.join(symRoot, 'routing.jsonl'));
+    const symOk = symR.rc === 0
+      && decisionOf(symR.out).kind === 'warn'
+      && symLedger.length === 1
+      && symLedger[0].verdict === 'warn';
+    results.push(`${symOk ? 'PASS' : 'FAIL'} po-rg-symlink-hook — symlinked hook file and repo dir: 20-line Write warns and logs one ledger line`);
+    if (!symOk) exit = 1;
+  } catch (e) {
+    results.push(`FAIL po-rg-symlink-hook — ${e && e.message || e}`);
+    exit = 1;
+  }
+
+  // /tmp (not /private/tmp) file_path: Jev state path must be repo-relative without .. or leading /.
+  try {
+    const tmpRepo = `/tmp/ech-rg-${process.pid}`;
+    rmSync(tmpRepo, { recursive: true, force: true });
+    mkdirSync(path.join(tmpRepo, 'src'), { recursive: true });
+    put(path.join(tmpRepo, 'src', 'a.ts'), lines(5, 't'));
+    git('-c', 'init.defaultBranch=main', 'init', '-q', tmpRepo);
+    git('-C', tmpRepo, 'add', '-A');
+    git('-C', tmpRepo, '-c', 'user.name=h', '-c', 'user.email=h@h', 'commit', '-q', '-m', 'tmp');
+    const tmpRoot = path.join(TMP, 'runs', 'default', 'po-rg-tmp-path');
+    mkdirSync(tmpRoot, { recursive: true });
+    put(path.join(tmpRoot, 'composer-run.mjs'), '');
+    put(path.join(tmpRoot, 'cursor-agent'), '');
+    const tmpEnv = childEnv('default', tmpRoot, {
+      ROUTE_GATE_JEV: '1',
+      TYPESAFE_AI_JEV_API_KEY: DUMMY_KEY,
+      ROUTE_GATE_LANE_SCRIPT: path.join(tmpRoot, 'composer-run.mjs'),
+      ROUTE_GATE_CURSOR_BIN: path.join(tmpRoot, 'cursor-agent'),
+    });
+    const tmpFp = `${tmpRepo}/src/a.ts`;
+    if (!tmpFp.startsWith('/tmp/')) throw new Error('tmp fixture not under /tmp');
+    stub.response = answerCoder('ai-coder', 0.9);
+    stub.bodies = [];
+    const tmpInp = JSON.stringify({
+      session_id: SID_RG, prompt_id: 'p-tmp-path', cwd: tmpRepo, hook_event_name: 'PreToolUse',
+      tool_name: 'Write', tool_input: { file_path: tmpFp, content: lines(20) }, tool_use_id: 'toolu_tmp',
+    });
+    const tmpR = await runNode(HOOK.rg, tmpInp, tmpEnv, tmpRepo);
+    const p = stub.bodies[0]?.body?.state?.path;
+    const tmpOk = tmpR.rc === 0 && typeof p === 'string' && !p.includes('..') && !p.startsWith('/');
+    results.push(`${tmpOk ? 'PASS' : 'FAIL'} po-rg-tmp-path — /tmp file_path: Jev state.path is repo-relative (no .., no leading /)`);
+    if (!tmpOk) exit = 1;
+    rmSync(tmpRepo, { recursive: true, force: true });
+  } catch (e) {
+    results.push(`FAIL po-rg-tmp-path — ${e && e.message || e}`);
+    exit = 1;
   }
   // The ledger-guard unit checks live next to the parity tool, which uses the same module.
   const g = spawnSync(process.execPath, [path.join(HERE, 'ledger-guard.test.mjs')], { encoding: 'utf8' });
@@ -311,7 +467,7 @@ try {
 const failed = results.filter(r => !r.startsWith('PASS')).length;
 const out = ['PLUGIN-ONLY checks (NEW hooks alone, no originals, no owner config)', ...results,
   `PASS ${results.length - failed} · FAIL ${failed}`];
-if (failed || results.length < CHECKS.length + 1) exit = 1;
+if (failed || results.length < CHECKS.length + 4) exit = 1;
 try { server.closeAllConnections?.(); server.close(); } catch {}
 if (!KEEP) { try { rmSync(TMP, { recursive: true, force: true }); } catch {} }
 // A pipe is asynchronous on macOS: exit only once the table is flushed.

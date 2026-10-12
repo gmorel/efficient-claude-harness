@@ -62,7 +62,7 @@ claude plugin marketplace add gmorel/efficient-claude-harness --scope project
 claude plugin install ech@efficient-claude-harness --scope project
 ```
 
-The repository is private for now, so each user needs read access to it on GitHub.
+While the repository is private, each user needs read access to it on GitHub.
 The plugin has no `version` field on purpose: each commit counts as a new version, so users track the repository rather than release numbers.
 
 ## Prerequisites, per lane
@@ -151,6 +151,19 @@ A Jev failure (no answer, timeout, HTTP error, unreadable body) never blocks a t
 Set it to an empty value (`ROUTE_GATE_AGENT_PREFIX=`) to get the original messages byte for byte, naming `ai-coder` and `ai-coder-high`.
 The owner's own environment should set it to empty.
 
+### Jev classification for `route-gate` (opt-in)
+
+`ROUTE_GATE_JEV=1` together with a Jev key (the same key rules as `errand-router` above) turns on the Jev coder mode.
+It changes nothing for small edits: Jev is asked only after the fixed rules already decided to nudge or block (`size` or `many_files`).
+Jev picks one lane: `ai-coder`, `ai-coder-high` or `main` (keep the edit in the main session).
+A guarded path always stays on `ai-coder-high`, whatever Jev says.
+Jev can move an ordinary path up to `ai-coder-high`.
+In warn mode, `main` removes the nudge; in deny mode, `main` never lifts the block.
+A confidence under 0.80 (`ROUTE_GATE_JEV_MIN_CONF`), a timeout of 1500 ms (`ROUTE_GATE_JEV_TIMEOUT_MS`) or any error keeps the fixed-rule result.
+By default only metadata goes to Jev: tool, file extension, path relative to the git root, line counts, file count and the guarded flag.
+`ROUTE_GATE_JEV_SEND_TEXT=1` also sends up to 400 characters of the new code, after a best-effort secret redaction; turn it on only if you accept that code leaves your machine.
+In Jev mode the ledger record gains `jev_lane`, `jev_conf`, `jev_ms` and `jev_action`; without it, output and ledger are unchanged.
+
 ### Parity check against the original hooks
 
 `node tests/parity/run.mjs` runs the original hooks under `~/.claude/hooks/` and the plugin hooks on the same inputs in a temp sandbox, and prints one table row per case.
@@ -170,6 +183,8 @@ The plugin's `route-gate` now runs the `lane_missing` check like the original: a
 `node tests/plugin/run.mjs` checks the plugin hooks alone and needs only node and git.
 It reads no `~/.claude/hooks` original and no owner config, so `env -u ERRAND_ROUTER_CONFIG HOME="$(mktemp -d)" node tests/plugin/run.mjs` must exit 0.
 `node tests/parity/run.mjs` is the owner-only parity tool against the original hooks, and it exits 3 without `~/.config/harness/errand-router.json`.
+
+AI agents that work on this repository follow [AGENTS.md](AGENTS.md); it holds the test commands, the invariants and the git rules.
 
 ## Security notes
 
