@@ -1,0 +1,9 @@
+{
+  "name": "harness",
+  "description": "Delegation harness: coding lanes (Cursor Composer, a delegation service, Codex), code-explorer, browser-qa, task-reviewer, claim-sentinel observer, and warn-only routing hooks.",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "keywords": ["delegation", "subagents", "cursor", "codex", "browser-qa", "routing"]
+}

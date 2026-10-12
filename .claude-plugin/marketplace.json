@@ -1,0 +1,14 @@
+{
+  "name": "efficient-claude-harness",
+  "description": "A delegation harness for Claude Code: coding lanes, a code finder, a browser QA agent, a claim observer and edit-routing hooks.",
+  "owner": {
+    "name": "gmorel"
+  },
+  "plugins": [
+    {
+      "name": "harness",
+      "source": "./plugins/harness",
+      "description": "Agents that keep the main conversation small: ai-coder lanes (Cursor Composer, a delegation service), code-explorer, browser-qa, task-reviewer, claim-sentinel, plus warn-only routing hooks."
+    }
+  ]
+}
