@@ -68,7 +68,6 @@ claude plugin marketplace add gmorel/efficient-claude-harness --scope project
 claude plugin install ech@efficient-claude-harness --scope project
 ```
 
-While the repository is private, each user needs read access to it on GitHub.
 The plugin has no `version` field on purpose: each commit counts as a new version, so users track the repository rather than release numbers.
 
 ## Prerequisites, per lane
