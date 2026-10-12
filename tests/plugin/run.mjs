@@ -283,6 +283,23 @@ const CHECKS = [
       const leak = s.some(x => x.raw.includes(DUMMY_KEY) || JSON.stringify(x.ledger).includes(DUMMY_KEY));
       return fromFile && noDefault && !leak;
     } },
+  { id: 'po-jev-redact-before-slice', hook: 'er', what: 'ERRAND_ROUTER_JEV=1: token straddling char 500 does not leak a fragment into the stub body',
+    profile: 'plugin', steps: (() => {
+      const secret = 'sk_test_' + 'Z'.repeat(28);
+      const pad = 'p'.repeat(479);
+      const cmd = `grep -e '${pad}\n${secret}' ${R('src/a.ts')}`;
+      return [...ERRANDS.slice(0, 2).map(bash), bash(cmd)];
+    })(),
+    check: s => {
+      const secret = 'sk_test_' + 'Z'.repeat(28);
+      const raw = JSON.stringify(s[2].bodies[0]?.body ?? {});
+      for (let len = secret.length; len >= 8; len--) {
+        for (let i = 0; i <= secret.length - len; i++) {
+          if (raw.includes(secret.slice(i, i + len))) return false;
+        }
+      }
+      return callsOf(s) === 1 && raw.includes('sk_***');
+    } },
   { id: 'po-rg-prefix-unset', hook: 'rg', what: 'ROUTE_GATE_AGENT_PREFIX unset: deny reason names ech:ai-coder',
     env: { ROUTE_GATE: 'deny' }, profile: 'default', steps: [write(R('src/a.ts'), 20)],
     check: s => s[0].decision.kind === 'deny' && s[0].decision.text.includes('through the ech:ai-coder agent') },

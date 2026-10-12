@@ -424,9 +424,9 @@ async function main() {
   }
 
   // Jev mode: the original path.
-  const { jevChoose } = await import('./lib/jev-client.mjs');
+  const { jevChoose, redactDeep } = await import('./lib/jev-client.mjs');
   const lanes = availableLanes(inp.cwd);
-  const jev = await jevChoose({ ...buildErrandQuestion({ tool, cmd: String(text || '').slice(0, 500), lanes }), timeoutMs: TIMEOUT_MS });
+  const jev = await jevChoose({ ...buildErrandQuestion({ tool, cmd: redactDeep(String(text || '')).slice(0, 500), lanes }), timeoutMs: TIMEOUT_MS });
   const d = decideJev({ streak, mode: m, jev });
   const action = arm === 'control' && (d.action === 'warn' || d.action === 'deny') ? 'would-warn' : d.action;
   log({ ...base, lanes: lanes.length, lane: jev?.choice ?? null, confidence: jev?.confidence ?? null, jev_ms: jev?.ms ?? null, action });
