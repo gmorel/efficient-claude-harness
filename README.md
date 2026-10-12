@@ -19,9 +19,15 @@ flowchart TD
   A -->|"check = ESCALATE"| G["composer-merger · sonnet"]
   H -->|"opus · high"| D
   X -->|"codex CLI · effort per brief"| O["GPT-6-Astra"]
+  RG["route-gate hook · on edits"] -. "nudges big edits" .-> A
+  RG -. "nudges guarded paths" .-> H
+  ER["errand-router hook · on Bash and Read"] -. "nudges errand runs" .-> E
+  RG -. "opt-in ROUTE_GATE_JEV" .-> J["Jev · typesafe.ai"]
+  ER -. "opt-in ERRAND_ROUTER_JEV" .-> J
 ```
 
 Labels read `agent · model · effort`.
+Dotted arrows from the two hooks are notes added to Claude's context, never an automatic call; the Jev arrows exist only when you opt in.
 Agents with no effort run at the default; Haiku has no effort setting.
 The `haiku` lanes are thin wrappers: the model on the arrow does the real work.
 
