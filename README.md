@@ -19,9 +19,15 @@ flowchart TD
   A -->|"check = ESCALATE"| G["composer-merger · sonnet"]
   H -->|"opus · high"| D
   X -->|"codex CLI · effort per brief"| O["GPT-6-Astra"]
+  RG["route-gate hook · on edits"] -. "nudges big edits" .-> A
+  RG -. "nudges guarded paths" .-> H
+  ER["errand-router hook · on Bash and Read"] -. "nudges errand runs" .-> E
+  RG -. "opt-in ROUTE_GATE_JEV" .-> J["Jev · typesafe.ai"]
+  ER -. "opt-in ERRAND_ROUTER_JEV" .-> J
 ```
 
 Labels read `agent · model · effort`.
+Dotted arrows from the two hooks are notes added to Claude's context, never an automatic call; the Jev arrows exist only when you opt in.
 Agents with no effort run at the default; Haiku has no effort setting.
 The `haiku` lanes are thin wrappers: the model on the arrow does the real work.
 
@@ -62,7 +68,6 @@ claude plugin marketplace add gmorel/efficient-claude-harness --scope project
 claude plugin install ech@efficient-claude-harness --scope project
 ```
 
-The repository is private for now, so each user needs read access to it on GitHub.
 The plugin has no `version` field on purpose: each commit counts as a new version, so users track the repository rather than release numbers.
 
 ## Prerequisites, per lane
@@ -112,7 +117,7 @@ The observer costs tokens on every turn, so many people enable it only for risky
 
 ## Where runtime data goes
 
-Logs and ledgers (`runs.jsonl`, `delegate.jsonl`, `routing.jsonl`, `errand-router.jsonl`, shadow-run patch pairs, Astra job state) go to the plugin data directory, `~/.claude/plugins/data/harness-efficient-claude-harness/`.
+Logs and ledgers (`runs.jsonl`, `delegate.jsonl`, `routing.jsonl`, `errand-router.jsonl`, shadow-run patch pairs, Astra job state) go to the plugin data directory, `~/.claude/plugins/data/ech-efficient-claude-harness/`.
 Claude Code deletes that directory when you uninstall the plugin, unless you pass `--keep-data`.
 To keep the history somewhere durable, set `HARNESS_DATA_DIR` to a directory of your choice, or override individual files with `COMPOSER_LANE_LOG`, `DELEGATE_LEDGER`, `ROUTING_LEDGER` and `ERRAND_ROUTER_LEDGER`.
 When neither variable is available (for example when you run a script by hand), the scripts fall back to `~/.claude/harness-data/`.
@@ -149,7 +154,20 @@ Without `ERRAND_ROUTER_JEV=1` there is no network call at all, and the Jev clien
 A Jev failure (no answer, timeout, HTTP error, unreadable body) never blocks a tool call: the hook stays silent.
 `ROUTE_GATE_AGENT_PREFIX` sets the agent name in `route-gate` messages and its ledger, and its default is `ech:`.
 Set it to an empty value (`ROUTE_GATE_AGENT_PREFIX=`) to get the original messages byte for byte, naming `ai-coder` and `ai-coder-high`.
-The owner's own environment should set it to empty.
+Only the owner's parity profile sets it to empty, inside its sandbox; a real install keeps the default `ech:`, because the agents load as `ech:ai-coder` and `ech:ai-coder-high`.
+
+### Jev classification for `route-gate` (opt-in)
+
+`ROUTE_GATE_JEV=1` together with a Jev key (the same key rules as `errand-router` above) turns on the Jev coder mode.
+It changes nothing for small edits: Jev is asked only after the fixed rules already decided to nudge or block (`size` or `many_files`).
+Jev picks one lane: `ai-coder`, `ai-coder-high` or `main` (keep the edit in the main session).
+A guarded path always stays on `ai-coder-high`, whatever Jev says.
+Jev can move an ordinary path up to `ai-coder-high`.
+In warn mode, `main` removes the nudge; in deny mode, `main` never lifts the block.
+A confidence under 0.80 (`ROUTE_GATE_JEV_MIN_CONF`), a timeout of 1500 ms (`ROUTE_GATE_JEV_TIMEOUT_MS`) or any error keeps the fixed-rule result.
+By default only metadata goes to Jev: tool, file extension, path relative to the git root, line counts, file count and the guarded flag.
+`ROUTE_GATE_JEV_SEND_TEXT=1` also sends up to 400 characters of the new code, after a best-effort secret redaction; turn it on only if you accept that code leaves your machine.
+In Jev mode the ledger record gains `jev_lane`, `jev_conf`, `jev_ms` and `jev_action`; without it, output and ledger are unchanged.
 
 ### Parity check against the original hooks
 
@@ -170,6 +188,8 @@ The plugin's `route-gate` now runs the `lane_missing` check like the original: a
 `node tests/plugin/run.mjs` checks the plugin hooks alone and needs only node and git.
 It reads no `~/.claude/hooks` original and no owner config, so `env -u ERRAND_ROUTER_CONFIG HOME="$(mktemp -d)" node tests/plugin/run.mjs` must exit 0.
 `node tests/parity/run.mjs` is the owner-only parity tool against the original hooks, and it exits 3 without `~/.config/harness/errand-router.json`.
+
+AI agents that work on this repository follow [AGENTS.md](AGENTS.md); it holds the test commands, the invariants and the git rules.
 
 ## Security notes
 

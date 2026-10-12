@@ -10,6 +10,11 @@
 //   <data>/route-gate.json  {"mode":"warn","maxLines":15,"guardedMaxLines":1,"maxFilesPerPrompt":3}
 //   ROUTE_GATE_CONFIG / ROUTE_GATE_STATE / ROUTING_LEDGER override each file's location.
 //   ROUTE_GATE_AGENT_PREFIX (default "ech:") is put before ai-coder / ai-coder-high in messages and the ledger; set it empty for the original names.
+// Jev coder mode (opt-in): ROUTE_GATE_JEV=1 AND a key from lib/jev-client.mjs loadKey() consults Jev after fixed rules yield warn/deny for size or many_files.
+// ROUTE_GATE_JEV_MIN_CONF (default 0.80, same as ERRAND_ROUTER_MIN_CONF) and ROUTE_GATE_JEV_TIMEOUT_MS (default 1500) bound the call; any failure keeps the fixed-rules outcome.
+// In Jev mode the Jev endpoint always gets metadata: tool, ext, the repo-relative path, line counts, files this turn and the guarded flag.
+// ROUTE_GATE_JEV_SEND_TEXT=1 also sends up to 400 chars of the edit text, redacted before it is cut; default is metadata only.
+// Without Jev mode the client is never loaded and no network call is made.
 // <data> is HARNESS_DATA_DIR, else CLAUDE_PLUGIN_DATA (exported to plugin hooks), else ~/.claude/harness-data.
 
 import { appendFileSync, readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, renameSync, realpathSync, statSync } from 'node:fs';
@@ -18,6 +23,7 @@ import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildCoderQuestion, decideCoderJev } from './lib/route-gate-jev.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT || path.dirname(HERE);
@@ -38,6 +44,15 @@ const GUARDED_WORD = /(^|\/)[^/]*(auth|payment|billing)[^/]*(\/|\.[a-z0-9]+$)/i;
 
 const sha = s => createHash('sha256').update(String(s ?? '')).digest('hex').slice(0, 12);
 const out = o => { if (o) process.stdout.write(JSON.stringify(o)); process.exit(0); };
+
+const TIMEOUT_MS = Number(process.env.ROUTE_GATE_JEV_TIMEOUT_MS) || 1500;
+let JEV = false;
+if (process.env.ROUTE_GATE_JEV === '1') {
+  try {
+    const { loadKey } = await import('./lib/jev-client.mjs');
+    JEV = !!loadKey();
+  } catch {}
+}
 
 async function readStdin() {
   const chunks = [];
@@ -103,6 +118,70 @@ function findNearestGitAncestor(fp) {
 function isGit(dir) {
   const g = spawnSync('git', ['-C', dir, 'rev-parse', '--git-dir'], { encoding: 'utf8', timeout: 2000 });
   return g.status === 0;
+}
+
+function gitRoot(dir) {
+  const g = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 2000 });
+  return g.status === 0 ? g.stdout.trim() : null;
+}
+
+function resolveFpForRel(fp) {
+  try {
+    if (existsSync(fp)) return realpathSync.native(fp);
+  } catch {}
+  let dir = path.dirname(fp);
+  while (dir && dir !== path.dirname(dir)) {
+    if (existsSync(dir)) {
+      try {
+        const realDir = realpathSync.native(dir);
+        return path.join(realDir, path.relative(dir, fp));
+      } catch { break; }
+    }
+    dir = path.dirname(dir);
+  }
+  return path.resolve(fp);
+}
+
+function relGitPath(fp, gitDir) {
+  const root = gitRoot(gitDir);
+  if (!root) return path.basename(fp);
+  const rel = path.relative(root, resolveFpForRel(fp));
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return path.basename(fp);
+  return rel.split(path.sep).join('/');
+}
+
+function extractNewText(tool, ti) {
+  if (tool === 'Write') return String(ti.content || '');
+  if (tool === 'NotebookEdit') return String(ti.new_source || '');
+  if (tool === 'Edit') return String(ti.new_string || '');
+  if (tool === 'MultiEdit') return (ti.edits || []).map(e => e.new_string || '').join('\n');
+  return '';
+}
+
+function gateOutput(verdict, { size, cumLines, filesInPrompt, fp, isGuarded, target }) {
+  if (verdict === 'warn') {
+    const basename = path.basename(fp);
+    const delegateMsg = isGuarded
+      ? `File is a guarded path (auth, payments, migrations, CI, or secrets). Changes of this size there go to the ${target} agent, which needs a written plan first.`
+      : `Delegate changes of this size to the ${target} agent (Cursor Composer 2.5, in place on the current branch, commits nothing) instead of editing directly.`;
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        additionalContext: `route-gate: this edit is Composer-lane size (${size} lines now, ${cumLines} in ${basename} this turn, ${filesInPrompt} code files this turn). ${delegateMsg}`,
+      },
+    };
+  }
+  if (verdict === 'deny') {
+    const basename = path.basename(fp);
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: `code changes of this size go through the ${target} agent. Blocked file: ${basename} (${cumLines} lines this turn). If ${target} hands the task back (not a git repo, guarded path, or engine unavailable), say so and the caller will decide what to do.`,
+      },
+    };
+  }
+  return null;
 }
 
 function getCursorBin() {
@@ -179,21 +258,21 @@ function writeLedger(rec) {
   try { appendFileSync(ledger, JSON.stringify(rec) + '\n', 'utf8'); } catch {}
 }
 
-try {
+async function main() {
   const inp = await readStdin();
-  if (!inp) process.exit(0);
+  if (!inp) return;
 
   const tool = inp.tool_name;
   const ti = inp.tool_input || {};
 
   // Step 1: Only code files
-  if (!['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(tool)) process.exit(0);
+  if (!['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(tool)) return;
   const fp = ti.file_path || ti.notebook_path;
-  if (!fp) process.exit(0);
+  if (!fp) return;
   // A guarded path is gated whatever its extension: .env, CI workflows and git
   // hooks carry no code extension and used to exit here, never reaching GUARDED.
   const isGuarded = GUARDED.test(fp) || GUARDED_WORD.test(fp);
-  if (!isGuarded && !CODE_EXT.has(path.extname(fp).toLowerCase())) process.exit(0);
+  if (!isGuarded && !CODE_EXT.has(path.extname(fp).toLowerCase())) return;
 
   const cfg = getConfig();
   let size = 0;
@@ -248,12 +327,14 @@ try {
   const agentId = inp.agent_id;
 
   // Step 4: Decision tree
-  const target = AGENT_PREFIX + (isGuarded ? 'ai-coder-high' : 'ai-coder');
+  let targetSuffix = isGuarded ? 'ai-coder-high' : 'ai-coder';
+  let target = AGENT_PREFIX + targetSuffix;
   let why = 'unknown';
   let verdict = 'pass';
   let warnOutput = null;
   let cumLines = 0;
   let filesInPrompt = 0;
+  let jevMeta = null;
 
   if (cfg.mode === 'off') {
     why = 'env_off';
@@ -305,26 +386,38 @@ try {
       saveState(state);
     }
 
-    if (verdict === 'warn') {
-      const basename = path.basename(fp);
-      const delegateMsg = isGuarded
-        ? `File is a guarded path (auth, payments, migrations, CI, or secrets). Changes of this size there go to the ${target} agent, which needs a written plan first.`
-        : `Delegate changes of this size to the ${target} agent (Cursor Composer 2.5, in place on the current branch, commits nothing) instead of editing directly.`;
-      warnOutput = {
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          additionalContext: `route-gate: this edit is Composer-lane size (${size} lines now, ${cumLines} in ${basename} this turn, ${filesInPrompt} code files this turn). ${delegateMsg}`,
-        },
+    warnOutput = gateOutput(verdict, { size, cumLines, filesInPrompt, fp, isGuarded, target });
+
+    if (JEV && (verdict === 'warn' || verdict === 'deny') && (why === 'size' || why === 'many_files')) {
+      const gitDir = findNearestGitAncestor(fp);
+      const { jevChoose, redactDeep } = await import('./lib/jev-client.mjs');
+      const jev = await jevChoose({
+        ...buildCoderQuestion({
+          tool,
+          ext: path.extname(fp).toLowerCase(),
+          relPath: relGitPath(fp, gitDir),
+          lines: size,
+          cumLines,
+          filesInPrompt,
+          guarded: isGuarded,
+          newText: extractNewText(tool, ti),
+        }, redactDeep),
+        timeoutMs: TIMEOUT_MS,
+      });
+      const d = decideCoderJev({ verdict, mode: cfg.mode, guarded: isGuarded, jev });
+      verdict = d.verdict;
+      targetSuffix = d.target;
+      target = AGENT_PREFIX + targetSuffix;
+      jevMeta = {
+        jev_lane: jev?.choice ?? null,
+        jev_conf: jev?.confidence ?? null,
+        jev_ms: jev?.ms ?? null,
+        jev_action: d.action,
       };
-    } else if (verdict === 'deny') {
-      const basename = path.basename(fp);
-      warnOutput = {
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'deny',
-          permissionDecisionReason: `code changes of this size go through the ${target} agent. Blocked file: ${basename} (${cumLines} lines this turn). If ${target} hands the task back (not a git repo, guarded path, or engine unavailable), say so and the caller will decide what to do.`,
-        },
-      };
+      if (d.suppressOutput) warnOutput = null;
+      else if (verdict === 'warn' || verdict === 'deny') {
+        warnOutput = gateOutput(verdict, { size, cumLines, filesInPrompt, fp, isGuarded, target });
+      } else warnOutput = null;
     }
   }
 
@@ -347,11 +440,11 @@ try {
     prompt_id: promptId,
     cwd_name: cwd ? path.basename(cwd) : null,
     ts: new Date().toISOString(),
+    ...(jevMeta || {}),
   };
   writeLedger(rec);
 
   if (warnOutput) out(warnOutput);
-  process.exit(0);
-} catch {
-  process.exit(0);
 }
+
+main().catch(() => {}).finally(() => process.exit(0));
