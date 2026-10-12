@@ -117,7 +117,7 @@ The observer costs tokens on every turn, so many people enable it only for risky
 
 ## Where runtime data goes
 
-Logs and ledgers (`runs.jsonl`, `delegate.jsonl`, `routing.jsonl`, `errand-router.jsonl`, shadow-run patch pairs, Astra job state) go to the plugin data directory, `~/.claude/plugins/data/harness-efficient-claude-harness/`.
+Logs and ledgers (`runs.jsonl`, `delegate.jsonl`, `routing.jsonl`, `errand-router.jsonl`, shadow-run patch pairs, Astra job state) go to the plugin data directory, `~/.claude/plugins/data/ech-efficient-claude-harness/`.
 Claude Code deletes that directory when you uninstall the plugin, unless you pass `--keep-data`.
 To keep the history somewhere durable, set `HARNESS_DATA_DIR` to a directory of your choice, or override individual files with `COMPOSER_LANE_LOG`, `DELEGATE_LEDGER`, `ROUTING_LEDGER` and `ERRAND_ROUTER_LEDGER`.
 When neither variable is available (for example when you run a script by hand), the scripts fall back to `~/.claude/harness-data/`.
@@ -154,7 +154,7 @@ Without `ERRAND_ROUTER_JEV=1` there is no network call at all, and the Jev clien
 A Jev failure (no answer, timeout, HTTP error, unreadable body) never blocks a tool call: the hook stays silent.
 `ROUTE_GATE_AGENT_PREFIX` sets the agent name in `route-gate` messages and its ledger, and its default is `ech:`.
 Set it to an empty value (`ROUTE_GATE_AGENT_PREFIX=`) to get the original messages byte for byte, naming `ai-coder` and `ai-coder-high`.
-The owner's own environment should set it to empty.
+Only the owner's parity profile sets it to empty, inside its sandbox; a real install keeps the default `ech:`, because the agents load as `ech:ai-coder` and `ech:ai-coder-high`.
 
 ### Jev classification for `route-gate` (opt-in)
 
