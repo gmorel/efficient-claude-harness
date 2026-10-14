@@ -22,6 +22,7 @@ import { existsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coderLaneSnapshotPath } from './lib/snapshot-path.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Runtime data (logs, ledgers, job state) lives OUTSIDE the plugin: the install
@@ -392,7 +393,7 @@ async function runCode() {
         const f = l.slice(3).trim();
         if (!preUntracked.has(f)) { untracked++; paths.add(f); newFiles.push(f); }
       }
-      try { writeFileSync(path.join(workspace, '.git', 'coder-lane-last.json'),
+      try { writeFileSync(coderLaneSnapshotPath(workspace),
         JSON.stringify({ ts: new Date().toISOString(), task: taskId, pre_sha: preSha, paths: [...paths].sort(), new_files: newFiles })); } catch {}
     }
     footprint = {
@@ -645,7 +646,7 @@ async function runCheck() {
   // In place, the engine's files come from the snapshot the last `code` run left
   // behind — never from `git status`, which on a dirty tree would blame the
   // user's own edits on the engine.
-  let last = null; try { last = JSON.parse(readFileSync(path.join(repo, '.git', 'coder-lane-last.json'), 'utf8')); } catch {}
+  let last = null; try { last = JSON.parse(readFileSync(coderLaneSnapshotPath(repo), 'utf8')); } catch {}
   const files = inPlace
     ? (last ? (last.paths || [])
             : (ok(g(repo, 'status', '--porcelain')) || '').split('\n').filter(Boolean).map(l => l.slice(3).trim()).filter(Boolean))

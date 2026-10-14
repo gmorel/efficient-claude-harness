@@ -10,7 +10,7 @@
 // Every child gets a minimal environment and a temp HOME, so the result does not depend on the caller's HOME or ERRAND_ROUTER_CONFIG.
 // Prove it: env -u ERRAND_ROUTER_CONFIG HOME="$(mktemp -d)" node tests/plugin/run.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, rmSync, existsSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, rmSync, existsSync, symlinkSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
@@ -33,6 +33,8 @@ for (const f of [RG, ER]) {
   if (!existsSync(f)) { process.stderr.write(`missing hook file: ${f}\n`); process.exit(3); }
 }
 const HOOK = { rg: realpathSync(RG), er: realpathSync(ER) };
+const COMPOSER_RUN = path.resolve(HERE, '..', '..', 'plugins', 'ech', 'scripts', 'composer-run.mjs');
+const SNAPSHOT_PATH = path.resolve(HERE, '..', '..', 'plugins', 'ech', 'scripts', 'lib', 'snapshot-path.mjs');
 
 const TMP = realpathSync(mkdtempSync(path.join(tmpdir(), 'hook-plugin-')));
 const HOME_DIR = path.join(TMP, 'home');
@@ -473,6 +475,74 @@ try {
     results.push(`FAIL po-rg-tmp-path — ${e && e.message || e}`);
     exit = 1;
   }
+
+  // composer-run snapshot: git-path resolution for linked worktrees and plain repos.
+  try {
+    const { coderLaneSnapshotPath } = await import(SNAPSHOT_PATH);
+    const runCheck = (repo) => {
+      const r = spawnSync(process.execPath, [COMPOSER_RUN, 'check', '--repo', repo, '--test-cmd', 'true'],
+        { env: GIT_ENV, encoding: 'utf8' });
+      if (r.status !== 0) throw new Error(`check failed: ${(r.stderr || r.stdout || '').trim()}`);
+      return JSON.parse(r.stdout);
+    };
+    const writeSnapshot = (dir, paths) => {
+      const snap = coderLaneSnapshotPath(dir);
+      mkdirSync(path.dirname(snap), { recursive: true });
+      writeFileSync(snap, JSON.stringify({ ts: new Date().toISOString(), paths, new_files: [] }));
+      return snap;
+    };
+
+    const mainRepo = path.join(TMP, 'composer-snapshot-main');
+    const wtRepo = path.join(TMP, 'composer-snapshot-wt');
+    rmSync(mainRepo, { recursive: true, force: true });
+    rmSync(wtRepo, { recursive: true, force: true });
+    put(path.join(mainRepo, 'a.txt'), 'a\n');
+    put(path.join(mainRepo, 'b.txt'), 'b\n');
+    git('-c', 'init.defaultBranch=main', 'init', '-q', mainRepo);
+    git('-C', mainRepo, 'add', '-A');
+    git('-C', mainRepo, '-c', 'user.name=h', '-c', 'user.email=h@h', 'commit', '-q', '-m', 'init');
+    git('-C', mainRepo, 'worktree', 'add', '-q', wtRepo, '-b', 'composer-snapshot-wt');
+
+    const gitMeta = path.join(wtRepo, '.git');
+    const wtUsesGitFile = existsSync(gitMeta) && !statSync(gitMeta).isDirectory();
+    const wtGitDir = spawnSync('git', ['-C', wtRepo, 'rev-parse', '--git-dir'], { env: GIT_ENV, encoding: 'utf8' }).stdout.trim();
+    const wtGitDirAbs = path.isAbsolute(wtGitDir) ? wtGitDir : path.resolve(wtRepo, wtGitDir);
+    const wtSnap = writeSnapshot(wtRepo, ['b.txt']);
+    put(path.join(wtRepo, 'a.txt'), 'user edit\n');
+    put(path.join(wtRepo, 'b.txt'), 'engine edit\n');
+    const wtCheck = runCheck(wtRepo);
+    const wtOk = wtUsesGitFile
+      && existsSync(wtSnap)
+      && wtSnap === path.join(wtGitDirAbs, 'coder-lane-last.json')
+      && wtCheck.files === 1
+      && wtCheck.decision === 'MERGE';
+    results.push(`${wtOk ? 'PASS' : 'FAIL'} po-composer-snapshot-worktree — snapshot via git-path in a linked worktree; check reads it (1 file, not status)`);
+    if (!wtOk) exit = 1;
+
+    const plainRepo = path.join(TMP, 'composer-snapshot-plain');
+    rmSync(plainRepo, { recursive: true, force: true });
+    put(path.join(plainRepo, 'a.txt'), 'a\n');
+    put(path.join(plainRepo, 'b.txt'), 'b\n');
+    git('-c', 'init.defaultBranch=main', 'init', '-q', plainRepo);
+    git('-C', plainRepo, 'add', '-A');
+    git('-C', plainRepo, '-c', 'user.name=h', '-c', 'user.email=h@h', 'commit', '-q', '-m', 'init');
+    const plainSnap = writeSnapshot(plainRepo, ['b.txt']);
+    put(path.join(plainRepo, 'a.txt'), 'user edit\n');
+    put(path.join(plainRepo, 'b.txt'), 'engine edit\n');
+    const plainCheck = runCheck(plainRepo);
+    const plainExpected = path.join(plainRepo, '.git', 'coder-lane-last.json');
+    const plainOk = plainSnap === plainExpected
+      && existsSync(plainSnap)
+      && plainCheck.files === 1
+      && plainCheck.decision === 'MERGE';
+    results.push(`${plainOk ? 'PASS' : 'FAIL'} po-composer-snapshot-plain — snapshot at .git/coder-lane-last.json in a normal repo; check reads it`);
+    if (!plainOk) exit = 1;
+  } catch (e) {
+    results.push(`FAIL po-composer-snapshot-worktree — ${e && e.message || e}`);
+    results.push(`FAIL po-composer-snapshot-plain — skipped after worktree setup error`);
+    exit = 1;
+  }
+
   // The ledger-guard unit checks live next to the parity tool, which uses the same module.
   const g = spawnSync(process.execPath, [path.join(HERE, 'ledger-guard.test.mjs')], { encoding: 'utf8' });
   results.push(`${g.status === 0 ? 'PASS' : 'FAIL'} ledger-guard — unit checks for the parity ledger split (tests/plugin/ledger-guard.test.mjs)`);
@@ -484,7 +554,7 @@ try {
 const failed = results.filter(r => !r.startsWith('PASS')).length;
 const out = ['PLUGIN-ONLY checks (NEW hooks alone, no originals, no owner config)', ...results,
   `PASS ${results.length - failed} · FAIL ${failed}`];
-if (failed || results.length < CHECKS.length + 4) exit = 1;
+if (failed || results.length < CHECKS.length + 6) exit = 1;
 try { server.closeAllConnections?.(); server.close(); } catch {}
 if (!KEEP) { try { rmSync(TMP, { recursive: true, force: true }); } catch {} }
 // A pipe is asynchronous on macOS: exit only once the table is flushed.
