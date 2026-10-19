@@ -22,6 +22,7 @@ import { existsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireEngine } from './lib/harness-config.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Runtime data (logs, ledgers, job state) lives OUTSIDE the plugin: the install
@@ -123,6 +124,9 @@ async function runCode() {
   // Default is standard, NOT fast. Fast measured 1.05x (a tie) on real-repo
   // In the first deployment Fast cost several times more per task for no measured speed gain.
   const model     = arg('model', 'composer-2.5');
+  // The model notation names the engine: composer-2.5 is Composer, codex@<effort> is Codex,
+  // opus@/sonnet@ is a local Claude run. A developer can switch any of them off.
+  requireEngine(model.startsWith('codex@') ? 'codex' : model.startsWith('composer') ? 'composer' : 'delegation');
   const workspace = arg('workspace', process.cwd());
   const branch    = arg('branch');
   const base      = arg('base');      // start the worktree from this commit (default HEAD)

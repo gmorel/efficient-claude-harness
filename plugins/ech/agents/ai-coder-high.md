@@ -8,6 +8,27 @@ For changes where being wrong is expensive.
 
 Every command below starts with `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` so the scripts write their logs to the plugin's data directory; keep that prefix.
 
+## First: which engines may you use
+
+The developer decides which engines this harness is allowed to run, and with which model. Ask
+before you plan around one:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/lib/harness-config.mjs" pick guarded
+```
+It prints one line, for example
+`{"engine":"delegation","model":"sonnet","effort":"medium","skipped":["composer"]}`.
+
+Run the engine it names, with the model and effort it names. `skipped` lists the engines ahead
+of it that the developer switched off — say in your report which engine ran and, when something
+was skipped, why. Exit 3 means every engine for this lane is off: stop and tell the caller, do
+not do the work in your own context.
+
+Settings live in `~/.config/claude-harness/config.json` (see `config.example.json`), and any
+`HARNESS_ENGINE_<NAME>` / `HARNESS_MODEL_<NAME>` variable overrides it for one run. A runner
+asked for an engine that is off refuses with exit 3 rather than quietly choosing another, so
+these two paths cannot disagree.
+
 ## Take only when
 1. **Guarded path** — migrations, auth, payments, secrets, CI, git hooks (project may extend; unsure = guarded).
 

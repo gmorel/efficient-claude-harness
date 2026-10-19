@@ -52,6 +52,60 @@ The `haiku` lanes are thin wrappers: the model on the arrow does the real work.
 The scripts the agents call live in `plugins/ech/scripts/`: `composer-run.mjs`, `remote-run.mjs`, `delegate.mjs`, `astra.mjs` and `openai-gpt-reviewer.mjs`.
 They need only Node; there are no npm dependencies.
 
+## Choosing which engines the harness may use
+
+The harness can reach three coding engines and a review engine. A developer decides which of
+them it is allowed to run, and with which model, in `~/.config/claude-harness/config.json`.
+Copy `plugins/ech/config.example.json` to start; every field is optional and what you leave out
+keeps its default.
+
+```json
+{
+  "engines": {
+    "composer":   { "enabled": true,  "model": "composer-2.5" },
+    "delegation": { "enabled": true,  "model": "sonnet", "effort": "medium" },
+    "codex":      { "enabled": false, "model": "codex@medium" },
+    "astra":      { "enabled": false }
+  },
+  "lanes": {
+    "coder":   { "order": ["composer", "delegation", "codex"] },
+    "guarded": { "order": ["delegation", "composer"], "model": "opus", "effort": "high" }
+  }
+}
+```
+
+A lane takes the **first enabled engine in its order**, so switching Composer off moves ordinary
+coding to the delegation service on `sonnet` rather than stopping it. Nothing falls back into the
+caller's own context, which is the behaviour the lanes exist to prevent. When every engine in a
+lane is off, the lane refuses and says so.
+
+The `guarded` lane — migrations, auth, payments, secrets, CI, git hooks — leads with the
+delegation service and overrides the model to `opus` at `high` effort. Effort pays in proportion
+to how many edge cases hide in a task, and that is what defines this lane.
+
+See what is in force:
+
+```bash
+node plugins/ech/scripts/lib/harness-config.mjs show
+```
+```
+config: /Users/you/.config/claude-harness/config.json
+ on   composer    composer-2.5
+ on   delegation  sonnet@medium
+ OFF  codex       codex@medium
+ lane coder    -> composer composer-2.5
+ lane guarded  -> delegation opus@high
+```
+
+Environment variables override the file, for CI or a single run:
+`HARNESS_ENGINE_CODEX=1`, `HARNESS_MODEL_DELEGATION=haiku@low`, `HARNESS_CONFIG=/path/to.json`.
+
+Two things make the switch real rather than advisory. The lane agents call
+`harness-config.mjs pick <lane>` and run what it names. The runners call the same module and
+**exit 3** when asked for an engine that is off, so an agent can never believe an engine is
+available while the runner refuses it. A malformed config is an error, never a silent return to
+defaults the developer did not choose.
+
 ## Install
 
 Inside Claude Code:

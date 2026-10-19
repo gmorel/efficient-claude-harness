@@ -7,6 +7,7 @@ import { execSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireEngine } from './lib/harness-config.mjs';
 
 // Runtime data (logs, ledgers, job state) lives OUTSIDE the plugin: the install
 // directory changes on every update. Resolution order: HARNESS_DATA_DIR, then
@@ -66,8 +67,12 @@ async function run(args) {
   const taskFile = f.task;
   const filesList = f.files;
   const profile = f.profile ?? 'implement';
-  const model = f.model ?? 'opus';
-  const effort = f.effort ?? 'medium';
+  // A developer can switch this engine off entirely; refusing here beats discovering it three
+  // minutes into a job. Exit 3 is what the lanes already read as "try the next engine", so
+  // nothing silently lands back in the caller's own context.
+  const engine = requireEngine('delegation');
+  const model = f.model ?? engine.model ?? 'sonnet';
+  const effort = f.effort ?? engine.effort ?? 'medium';
   const testCmd = f['test-cmd'];
   const dryRun = f['dry-run'];
   let sessionId = process.env.CLAUDE_SESSION_ID || null;
