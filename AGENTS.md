@@ -17,6 +17,8 @@ The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin source
 - `plugins/ech/hooks/hooks.json` registers the PreToolUse hooks `route-gate.mjs` and `errand-router.mjs`.
 - `plugins/ech/hooks/lib/jev-client.mjs` is the Jev client, loaded only in Jev mode.
 - `plugins/ech/scripts/*.mjs` are the scripts the agents call: `composer-run`, `remote-run`, `delegate`, `astra`, `openai-gpt-reviewer`.
+- `plugins/ech/scripts/harness-dashboard/` is the status page. No agent calls it; a person runs it by hand. It only reads the ledgers and the transcripts, and `lib.mjs` holds every path it uses.
+- `docs/` holds README assets only, currently the dashboard recording.
 - `tests/plugin/run.mjs` holds the plugin-only checks; `tests/plugin/ledger-guard.test.mjs` tests the ledger guard.
 - `tests/parity/run.mjs` compares the plugin hooks to the owner's original hooks.
 

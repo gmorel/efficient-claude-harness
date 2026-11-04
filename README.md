@@ -48,9 +48,34 @@ The `haiku` lanes are thin wrappers: the model on the arrow does the real work.
 | `/ech:delegate-to-external-ai` | command | The before-and-after checklist for a delegation-service job. |
 | `route-gate` | hook (PreToolUse on edits) | Notices when the main thread is hand-writing a Composer-sized code change and suggests `ech:ai-coder`. Guarded paths (migrations, CI, secrets, git hooks including `.githooks/`) are gated whatever their extension. Warn-only by default. |
 | `errand-router` | hook (PreToolUse on Bash and Read) | Notices runs of three or more read-only errands in the main thread and suggests handing the run to `ech:code-explorer`. Warn-only by default. |
+| `harness-dashboard` | scripts | One page showing whether each part of the harness is working, failing, degraded, dead or idle, plus a replay of the events that got it there. |
 
 The scripts the agents call live in `plugins/ech/scripts/`: `composer-run.mjs`, `remote-run.mjs`, `delegate.mjs`, `astra.mjs` and `openai-gpt-reviewer.mjs`.
 They need only Node; there are no npm dependencies.
+
+## Watching it run
+
+![The harness dashboard replaying four days of work: lanes light up and packets travel out from the main session](docs/harness-dashboard.gif)
+
+The harness spreads your work over a dozen lanes and two or three outside engines, which is exactly what makes it hard to tell whether any of them is still alive.
+`plugins/ech/scripts/harness-dashboard/` builds one self-contained page that answers that, out of the ledgers the harness already writes.
+
+```bash
+cd plugins/ech/scripts/harness-dashboard
+node backfill.mjs   # transcripts → <data>/dashboard-cache/agent-runs.jsonl, metadata only
+node build.mjs      # all ledgers + backfill → <data>/harness-dashboard.html
+node serve.mjs      # http://127.0.0.1:4783/ with a LIVE toggle
+```
+
+Your conversation sits at the centre of the onion.
+The first ring is the two hooks that see every edit, the second is the lanes it spawns, the third is the engines behind them, and the claim-sentinel observer sits above everything.
+Each delegation is drawn as a packet riding out along a line that fades behind it; the `layout` button switches back to a top-down tree that keeps the full text of every card.
+
+The page reads complete with JavaScript switched off — every state, number and table is in the markup, and `build.mjs` fails if the JS-off and JS-on readings disagree. Only the replay needs JavaScript.
+Nothing but enum fields, numbers and basenames reaches the page: no prompt text, no command text, no file contents, no error messages.
+[Its own README](plugins/ech/scripts/harness-dashboard/README.md) has the flags, the nudge-judging rules and the optional `SubagentStart`/`SubagentStop` hook that gives it per-agent run data.
+
+The recording above is a replay of synthetic ledgers, not real telemetry: the interface is the real one, the project names in it are invented.
 
 ## Choosing which engines the harness may use
 
@@ -136,6 +161,7 @@ Install only what the lanes you use need.
 | `ai-coder-high` with `codex@<effort>`, and `openai-gpt-reviewer.mjs` | The OpenAI `codex` Claude Code plugin installed, and a Codex login. |
 | Delegation service (`remote-run.mjs`, `delegate.mjs`) | Your own delegation-service deployment and its key, in `~/.config/claude-delegate/config.json` (see below). |
 | `delegate-to-openai-astra` | The `codex` CLI on `PATH`, logged in to an OpenAI account with access to GPT-6-Astra. |
+| `harness-dashboard` | Nothing beyond Node. It only reads ledgers and transcripts that are already on disk. |
 | `browser-qa` | Network access to npm the first time (`npx -y @playwright/cli@0.1.22`), and a browser; if none is found the agent runs `npx playwright install chromium` once. |
 | `claim-sentinel` | `CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=1` in your environment or settings `env`, and the attach step below. |
 
@@ -171,9 +197,9 @@ The observer costs tokens on every turn, so many people enable it only for risky
 
 ## Where runtime data goes
 
-Logs and ledgers (`runs.jsonl`, `delegate.jsonl`, `routing.jsonl`, `errand-router.jsonl`, shadow-run patch pairs, Astra job state) go to the plugin data directory, `~/.claude/plugins/data/ech-efficient-claude-harness/`.
+Logs and ledgers (`runs.jsonl`, `delegate.jsonl`, `routing.jsonl`, `errand-router.jsonl`, `agents.jsonl`, shadow-run patch pairs, Astra job state), and the dashboard's page and cache, go to the plugin data directory, `~/.claude/plugins/data/ech-efficient-claude-harness/`.
 Claude Code deletes that directory when you uninstall the plugin, unless you pass `--keep-data`.
-To keep the history somewhere durable, set `HARNESS_DATA_DIR` to a directory of your choice, or override individual files with `COMPOSER_LANE_LOG`, `DELEGATE_LEDGER`, `ROUTING_LEDGER` and `ERRAND_ROUTER_LEDGER`.
+To keep the history somewhere durable, set `HARNESS_DATA_DIR` to a directory of your choice, or override individual files with `COMPOSER_LANE_LOG`, `DELEGATE_LEDGER`, `ROUTING_LEDGER`, `ERRAND_ROUTER_LEDGER`, `AGENT_RUNS_LEDGER` and `HARNESS_DASHBOARD_OUT`.
 When neither variable is available (for example when you run a script by hand), the scripts fall back to `~/.claude/harness-data/`.
 `DELEGATE_CMD` replaces the delegation client script, which is useful for tests.
 
