@@ -160,7 +160,10 @@ function walk(dir) {
     scanned++;
   }
 }
-for (const d of fs.readdirSync(PROJECTS)) walk(path.join(PROJECTS, d));
+// No transcript directory at all is what a new install looks like, so it writes an empty cache
+// rather than throwing; CLAUDE_PROJECTS_DIR points at one somewhere else.
+if (!fs.existsSync(PROJECTS)) console.error(`backfill: no transcripts at ${PROJECTS}, nothing to read`);
+else for (const d of fs.readdirSync(PROJECTS)) walk(path.join(PROJECTS, d));
 for (const k of Object.keys(state.files)) if (!seenFiles.has(k)) delete state.files[k];
 fs.writeFileSync(BACKFILL_STATE, JSON.stringify(state));
 

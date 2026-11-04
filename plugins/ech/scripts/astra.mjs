@@ -64,6 +64,10 @@ const stamp = (txt) => String(txt).replace(/\s+$/, '').split('\n').map((l) => `$
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 if (cmd === 'run') {
+  // The README promises the engine switches are real, not advisory, so this lane refuses when a
+  // developer has switched Astra off — exactly as the coder lanes refuse for Composer or Codex.
+  const { requireEngine } = await import('./lib/harness-config.mjs');
+  requireEngine('astra');
   const rawPrompt = argv.slice(1).filter((a, i, arr) => !a.startsWith('--') && !(i > 0 && ['--effort', '--cwd', '--skill'].includes(arr[i - 1])))[0];
   const effort = opt('effort', 'high');
   const write = flag('write');

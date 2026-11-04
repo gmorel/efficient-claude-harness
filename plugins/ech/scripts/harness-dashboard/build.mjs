@@ -396,7 +396,14 @@ function sparkSvg(T, O, N, from, to, bins) {
 const defStart = NOW - 7 * 864e5;
 const staticSpark = sparkSvg(T, Ov, Nv, defStart, NOW, 240);
 
-const kit = fs.readFileSync(path.join(os.homedir(), '.claude/skills/visualizer/assets/sentence-divs.js'), 'utf8');
+// Optional: HARNESS_DASHBOARD_KIT names a script to inline at the end of the page — for example one
+// that wraps each sentence in its own element so a reader can comment on a single sentence. Nothing
+// is assumed about where such a script lives, and no variable means no script.
+let kit = '';
+if (process.env.HARNESS_DASHBOARD_KIT) {
+  try { kit = fs.readFileSync(process.env.HARNESS_DASHBOARD_KIT, 'utf8'); }
+  catch { console.error(`build: HARNESS_DASHBOARD_KIT not readable (${process.env.HARNESS_DASHBOARD_KIT}), page built without it`); }
+}
 const css = fs.readFileSync(path.join(DIR, 'page.css'), 'utf8');
 const pageJs = fs.readFileSync(path.join(DIR, 'page.js'), 'utf8');
 const META = { now: NOW, boxes: BOXES.map(b => ({ id: b.id, label: b.label, group: b.group, expected: b.expected, why: b.why })), defStart };
@@ -474,17 +481,27 @@ ${countsAt.toString()}
 ${sparkSvg.toString()}
 ${pageJs}
 </script>
-<script>${kit}</script>
+${kit ? `<script>${kit}</script>` : ''}
 </body></html>
 `;
 fs.mkdirSync(path.dirname(VIZ_OUT), { recursive: true });
 fs.writeFileSync(VIZ_OUT, html);
 const states = {}; for (const x of SUM) states[x.b.id] = x.st;
-// fail the build when the JS-on tree at arrival disagrees with the JS-off markup (skip with --no-check)
+// Fail the build when the JS-on tree at arrival disagrees with the JS-off markup (skip with --no-check).
+// The checker needs playwright-core and Chrome, which are not requirements of this plugin, so it exits 2
+// when it cannot run. The page is already written at that point, and not being able to check is not the
+// same as finding a difference: it warns and the build still succeeds. HARNESS_DASHBOARD_STRICT=1 fails
+// on both, for a setup that must never publish an unchecked page.
 if (!process.argv.includes('--no-check')) {
   const r = spawnSync(process.execPath, [path.join(DIR, 'check-states.mjs'), VIZ_OUT], { encoding: 'utf8' });
   process.stderr.write(r.stdout + r.stderr);
-  if (r.status !== 0) { console.error(r.status === 2 ? 'build: state check could not run' : 'build: FAILED, JS-on states differ from the static markup'); process.exitCode = 1; }
+  if (r.status === 2) {
+    console.error('build: state check could not run (playwright-core or Chrome missing); the page was written but NOT checked');
+    if (process.env.HARNESS_DASHBOARD_STRICT === '1') process.exitCode = 1;
+  } else if (r.status !== 0) {
+    console.error('build: FAILED, JS-on states differ from the static markup');
+    process.exitCode = 1;
+  }
 }
 console.log(JSON.stringify({ out: VIZ_OUT, bytes: Buffer.byteLength(html), mb: +(Buffer.byteLength(html) / 1e6).toFixed(2), events: events.length, raw_events: raw.length,
   events_per_source: perSource, ledger_lines: rawLines, range: [new Date(rangeFirst).toISOString(), new Date(rangeLast).toISOString()], boxes: BOXES.length, states, nudges: NUD, nudges_by_project: Object.fromEntries(projRowsAll) }, null, 1));

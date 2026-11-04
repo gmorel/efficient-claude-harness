@@ -40,7 +40,7 @@ decision notes, the knowledge map (`BRAIN.md`, `README`, `docs/`, `decisions/`
 recorded and already mitigated is not a finding; a risk recorded and *not*
 mitigated is your top item.
 
-Weight these classes heavily — they are where this user's projects have
+Weight these classes heavily — they are where projects like this one have
 actually been bitten:
 - **Writes that do not reach production** (config/prompt/flag read DB-row-first,
   a migration manifest that gates deploy, a cache that keeps serving the old).
