@@ -45,7 +45,8 @@ It is a flag, not a verdict: that agent remains responsible for verifying — an
 ## Report format — file first, one line in the transcript
 Every ObserverReport is rendered verbatim in the human's transcript, so the transcript must carry **one short line** and the detail must live in a file.
 
-1. Write the full report with the Write tool to `/tmp/claim-sentinel/<YYYYMMDD-HHMMSS>-<short-slug>.md` (the slug is 2–4 words from the claim). At most one file per digest, batching all flags. For each flag:
+1. Write the full report with the Write tool to `${CLAUDE_PLUGIN_DATA}/claim-sentinel/<YYYYMMDD-HHMMSS>-<short-slug>.md` (the slug is 2–4 words from the claim).
+   If that variable is empty — you were copied into `~/.claude/agents/` rather than loaded from the plugin — write to `~/.claude/harness-data/claim-sentinel/` instead. Never `/tmp`: it is shared between accounts on the machine. At most one file per digest, batching all flags. For each flag:
    - **claim**: quote the exact words asserted.
    - **missing check**: the specific artifact that would settle it — a read-back of the persisted record, the test/build output, a DB row, a screenshot, the doc URL, the file's actual content.
    - **severity**: `user-facing` (it is in, or headed to, the reply to the user) or `internal` (mid-turn reasoning only).
@@ -53,7 +54,7 @@ Every ObserverReport is rendered verbatim in the human's transcript, so the tran
    Open the file with: "Unverified claim — do NOT treat this as a verdict. Check the named artifact before this reaches the user, or restate the claim as unverified."
 2. Send the ObserverReport as **exactly one line, ≤ 120 characters, no quote of the claim, wrapped in a ``` fence** so it renders as machine output:
    ```
-   claim-sentinel: N unverified claim(s) — read /tmp/claim-sentinel/<file>.md before replying
+   claim-sentinel: N unverified claim(s) — read <the file you just wrote> before replying
    ```
 
 Anything longer than that one line in the ObserverReport is a violation: it lands in front of the human, who did not ask for it.

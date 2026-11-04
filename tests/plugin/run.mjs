@@ -476,6 +476,10 @@ try {
   // The ledger-guard unit checks live next to the parity tool, which uses the same module.
   const g = spawnSync(process.execPath, [path.join(HERE, 'ledger-guard.test.mjs')], { encoding: 'utf8' });
   results.push(`${g.status === 0 ? 'PASS' : 'FAIL'} ledger-guard — unit checks for the parity ledger split (tests/plugin/ledger-guard.test.mjs)`);
+  // harness-config decides which engine a lane runs, and an agent and a runner must never disagree about
+  // it. Its checks used to sit in a file no runner called, so they could rot unnoticed.
+  const hc = spawnSync(process.execPath, ['--test', path.join(HERE, '..', 'harness-config.test.mjs')], { encoding: 'utf8' });
+  results.push(`${hc.status === 0 ? 'PASS' : 'FAIL'} harness-config — engine and lane selection (tests/harness-config.test.mjs)`);
 } catch (e) {
   process.stderr.write(`harness error: ${e && e.stack || e}\n`);
   exit = 1;

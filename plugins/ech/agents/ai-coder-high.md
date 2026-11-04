@@ -17,7 +17,8 @@ before you plan around one:
 node "${CLAUDE_PLUGIN_ROOT}/scripts/lib/harness-config.mjs" pick guarded
 ```
 It prints one line, for example
-`{"engine":"delegation","model":"sonnet","effort":"medium","skipped":["composer"]}`.
+`{"engine":"delegation","model":"opus","effort":"high","skipped":[]}`.
+This lane always overrides the model to `opus` at `high` effort, so those two fields do not vary.
 
 Run the engine it names, with the model and effort it names. `skipped` lists the engines ahead
 of it that the developer switched off — say in your report which engine ran and, when something

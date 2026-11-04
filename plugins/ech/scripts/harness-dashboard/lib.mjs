@@ -33,7 +33,10 @@ export const PATHS = {
   delegate: envOf('DELEGATE_LEDGER', path.join(DATA_DIR, 'delegate.jsonl')),
   agents: envOf('AGENT_RUNS_LEDGER', path.join(DATA_DIR, 'agents.jsonl')),
   astraDir: path.join(DATA_DIR, 'openai-astra'),
-  sentinelDir: process.env.CLAIM_SENTINEL_DIR || '/tmp/claim-sentinel',
+  // Under the data directory, not /tmp: /tmp is shared and world-writable, so a default there makes
+  // one account's dashboard read another account's observer reports. CLAIM_SENTINEL_DIR must name the
+  // same directory the observer writes to.
+  sentinelDir: envOf('CLAIM_SENTINEL_DIR', path.join(DATA_DIR, 'claim-sentinel')),
 };
 
 const echOn = ENABLED_PLUGINS['ech@efficient-claude-harness'] === true;

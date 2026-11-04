@@ -36,7 +36,7 @@ The observer costs tokens on every turn, so many people enable it only for risky
 ## Hook details
 
 `route-gate` stays silent in subagents, in non-interactive sessions, outside git repositories, and when `cursor-agent` is missing.
-Its thresholds (`maxLines`, `guardedMaxLines`, `maxFilesPerPrompt`) live in `<data>/route-gate.json`; `ROUTE_GATE_CONFIG` points it at a file of your choice, and an existing `~/.claude/composer-lane/route-gate.json` works as is.
+Its thresholds (`maxLines`, `guardedMaxLines`, `maxFilesPerPrompt`) live in `<data>/route-gate.json`; `ROUTE_GATE_CONFIG` points it at a file of your choice. Those two are the only places it looks.
 An unguarded edit with no `cursor-agent` is logged as `lane_missing` and gets no note.
 
 `errand-router` stays silent in subagents and for the eight errands after a helper returns, so you can check what the helper claimed.

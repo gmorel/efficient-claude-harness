@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to ~/.config/claude-harness/config.json and edit. Every field is optional: what you leave out keeps the built-in default. Environment variables win over this file, so HARNESS_ENGINE_CODEX=1 enables Codex for one run without editing anything. See `node plugins/harness/scripts/lib/harness-config.mjs show`.",
+  "_comment": "Copy to ~/.config/claude-harness/config.json and edit. Every field is optional: what you leave out keeps the built-in default. Environment variables win over this file, so HARNESS_ENGINE_CODEX=1 enables Codex for one run without editing anything. See `node plugins/ech/scripts/lib/harness-config.mjs show`.",
 
   "engines": {
     "composer":   { "enabled": true,  "model": "composer-2.5" },

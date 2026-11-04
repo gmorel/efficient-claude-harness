@@ -26,6 +26,8 @@ The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin source
 ## Test before you propose a change
 
 Run `node tests/plugin/run.mjs`; it needs only node and git, runs anywhere, and must exit 0.
+Run `node tests/lint.mjs`; it must exit 0. It reads the tracked files and refuses an absolute path into a home directory, a read of a tool this repository does not ship, a credential-shaped string, a tracked ledger, a file that does not parse, a shebang without its executable bit, and a dead Markdown link.
+Before claiming any script works, run it with `env -i PATH="$PATH" HOME="$(mktemp -d)"`: this plugin is extracted from one person's setup, and the recurring bug is a path that exists only there.
 Clear inherited env first: `env -u ERRAND_ROUTER_JEV -u JEV_ENV_FILE -u ROUTE_GATE_JEV -u TYPESAFE_AI_JEV_API_KEY node tests/plugin/run.mjs`.
 Run `claude plugin validate .` from the repo root; it must pass.
 One warning that the plugin has no version is expected and intended; do not add a `version` to silence it.

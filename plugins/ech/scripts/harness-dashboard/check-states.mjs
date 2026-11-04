@@ -8,7 +8,9 @@ import os from 'node:os';
 import { VIZ_OUT } from './lib.mjs';
 
 const page = process.argv[2] || VIZ_OUT;
-const lib = [process.env.VIZ_PLAYWRIGHT, path.join(os.homedir(), '.local/lib/viz-check/node_modules/playwright-core/index.mjs')].filter(Boolean).find(p => fs.existsSync(p));
+// playwright-core is not a dependency of this plugin. VIZ_PLAYWRIGHT names a copy you already have
+// somewhere; otherwise the bare import is tried, and a miss exits 2 (could not check), never 1 (differs).
+const lib = [process.env.VIZ_PLAYWRIGHT].filter(Boolean).find(p => fs.existsSync(p));
 let chromium;
 try { ({ chromium } = await import(lib ?? 'playwright-core')); } catch { console.error('check-states: playwright-core not found, states NOT compared'); process.exit(2); }
 const browser = await chromium.launch({ channel: 'chrome' }).catch(() => null);
