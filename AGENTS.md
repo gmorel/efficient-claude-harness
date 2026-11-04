@@ -18,7 +18,8 @@ The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin source
 - `plugins/ech/hooks/lib/jev-client.mjs` is the Jev client, loaded only in Jev mode.
 - `plugins/ech/scripts/*.mjs` are the scripts the agents call: `composer-run`, `remote-run`, `delegate`, `astra`, `openai-gpt-reviewer`.
 - `plugins/ech/scripts/harness-dashboard/` is the status page. No agent calls it; a person runs it by hand. It only reads the ledgers and the transcripts, and `lib.mjs` holds every path it uses.
-- `docs/` holds README assets only, currently the dashboard recording.
+- `docs/reference.md` holds what the README deliberately leaves out: the delegation-service and claim-sentinel setup, the hook details, the opt-in Jev classifier and the parity check. `docs/` also holds the README's assets.
+- README.md is kept short on purpose. A new switch, flag or edge case goes in `docs/reference.md`; the README changes only when the headline behaviour does.
 - `tests/plugin/run.mjs` holds the plugin-only checks; `tests/plugin/ledger-guard.test.mjs` tests the ledger guard.
 - `tests/parity/run.mjs` compares the plugin hooks to the owner's original hooks.
 
