@@ -480,6 +480,10 @@ try {
   // it. Its checks used to sit in a file no runner called, so they could rot unnoticed.
   const hc = spawnSync(process.execPath, ['--test', path.join(HERE, '..', 'harness-config.test.mjs')], { encoding: 'utf8' });
   results.push(`${hc.status === 0 ? 'PASS' : 'FAIL'} harness-config — engine and lane selection (tests/harness-config.test.mjs)`);
+  // The card guard is the only Stop hook here, and a Stop hook that blocked by default would refuse the
+  // final reply of every session of every person who installed the plugin. Its first check is that.
+  const cg = spawnSync(process.execPath, ['--test', path.join(HERE, 'card-guard.test.mjs')], { encoding: 'utf8' });
+  results.push(`${cg.status === 0 ? 'PASS' : 'FAIL'} card-guard — off by default, and the card contract (tests/plugin/card-guard.test.mjs)`);
 } catch (e) {
   process.stderr.write(`harness error: ${e && e.stack || e}\n`);
   exit = 1;

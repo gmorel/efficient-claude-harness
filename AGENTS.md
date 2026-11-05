@@ -14,13 +14,14 @@ The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin source
 - `plugins/ech/agents/*.md` are the subagents, namespaced `ech:` (for example `ech:ai-coder`).
 - `plugins/ech/skills/<name>/SKILL.md` are the skills.
 - `plugins/ech/commands/*.md` are the slash commands.
-- `plugins/ech/hooks/hooks.json` registers the PreToolUse hooks `route-gate.mjs` and `errand-router.mjs`.
+- `plugins/ech/hooks/hooks.json` registers the PreToolUse hooks `route-gate.mjs` and `errand-router.mjs`, and the Stop hook `card-guard.mjs`.
+- `plugins/ech/output-styles/ELI5.md` is the one-card output style; `plugins/ech/hooks/card-guard.mjs` is the hook that enforces it. They are one contract in two files: change the card shape in one and change it in the other, or the guard refuses what the style asked for.
 - `plugins/ech/hooks/lib/jev-client.mjs` is the Jev client, loaded only in Jev mode.
 - `plugins/ech/scripts/*.mjs` are the scripts the agents call: `composer-run`, `remote-run`, `delegate`, `astra`, `openai-gpt-reviewer`.
 - `plugins/ech/scripts/harness-dashboard/` is the status page. No agent calls it; a person runs it by hand. It only reads the ledgers and the transcripts, and `lib.mjs` holds every path it uses.
 - `docs/reference.md` holds what the README deliberately leaves out: the delegation-service and claim-sentinel setup, the hook details, the opt-in Jev classifier and the parity check. `docs/` also holds the README's assets.
 - README.md is kept short on purpose. A new switch, flag or edge case goes in `docs/reference.md`; the README changes only when the headline behaviour does.
-- `tests/plugin/run.mjs` holds the plugin-only checks; `tests/plugin/ledger-guard.test.mjs` tests the ledger guard.
+- `tests/plugin/run.mjs` holds the plugin-only checks; `tests/plugin/ledger-guard.test.mjs` tests the ledger guard, `tests/plugin/card-guard.test.mjs` the card guard.
 - `tests/parity/run.mjs` compares the plugin hooks to the owner's original hooks.
 
 ## Test before you propose a change
@@ -38,6 +39,7 @@ A teammate may skip the parity run; the owner must run it after any change to a 
 
 - Hooks always exit 0 and never break an edit or a command, even on a crash.
 - Hooks are warn-only by default; blocking is opt-in.
+- The Stop hook is off by default, not warn-only: it must exit before it reads the reply unless `CARD_GUARD` is set. A Stop hook that blocks by default refuses the final reply of every session of everyone who installed the plugin.
 - Any opt-in mode (Jev) must leave default-mode output and ledgers byte-identical.
 - Without `ERRAND_ROUTER_JEV=1` (errand-router) or `ROUTE_GATE_JEV=1` (route-gate) there is no network call and `jev-client.mjs` is not loaded.
 - Errand-router Jev mode sends the first 500 characters of the command, redacted; route-gate Jev mode sends metadata only by default, and code text leaves the machine only with `ROUTE_GATE_JEV_SEND_TEXT=1`, and it is redacted before it is cut.
