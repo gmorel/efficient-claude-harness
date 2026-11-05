@@ -46,6 +46,37 @@ Half the sessions are a silent control group by default, in Jev mode and out of 
 `ROUTE_GATE_AGENT_PREFIX` sets the agent name in `route-gate` messages and its ledger; the default is `ech:`.
 An empty value gives the original messages byte for byte, naming `ai-coder` and `ai-coder-high`. Only the owner's parity profile sets it empty, inside its sandbox.
 
+## The card and its guard
+
+The `ELI5` output style and the `card-guard` Stop hook are one thing in two halves.
+The style says the final reply of a turn is **one card**: a single blockquote, a marker at the start of every paragraph (🟢 a task done · 🟡 you must decide · 🔴 blocked · ⚠️ read this · ▫️ information · ℹ️ skippable detail), one bold verdict, and every question asked with the question tool rather than buried in prose.
+The hook refuses a reply that is not one. A reply nobody reads is a reply that did not happen, and the shape is checkable, so a hook checks it instead of hoping the model remembers sixty lines of prompt.
+
+Select the style with `/output-style`, or set `"outputStyle": "ELI5"` in your settings.
+
+### Turning the guard on
+
+`card-guard` does nothing until `CARD_GUARD` is set, and that default is deliberate: a Stop hook that blocked by default would refuse the final reply of every session of everyone who installed this plugin, whatever output style they run.
+
+| `CARD_GUARD` | What it does |
+| --- | --- |
+| unset (default) | Nothing. The hook exits before it reads the reply. |
+| `log` | Never refuses. Writes every fault to the ledger. |
+| `block` | Refuses only a reply that is not a card at all — no blockquote, or HTML. Logs the rest. |
+| `strict` | Refuses every fault. |
+
+`block` is the useful setting. A refused reply stays on screen and the rewrite is added under it, so every refusal shows the reader the same answer twice; refusing a small fault costs more than it fixes.
+
+Also off when `<data>/card-guard.off` exists (that machine) or `.claude/card-guard.off` exists in the working directory (that project only — for CI and `claude -p` pipelines).
+`stop_hook_active` is honoured, so the guard cannot loop.
+Every fault, refused or not, is appended to `<data>/card-guard.jsonl`, one JSON object per line; `CARD_GUARD_LEDGER` moves it.
+
+### A card in another language
+
+Two strings in the contract are text, so they are settings, not code: `CARD_GUARD_TITLE` (default `> **👉 For you**`) and `CARD_GUARD_DEFAULT_PHRASE` (default `If you say nothing`).
+Set both to match the output style you actually run. A style whose card is written in French needs them, or every 🟡 card is a fault.
+The two must agree: the guard is checking the style's own words back.
+
 ## Jev classification (opt-in, both hooks)
 
 Jev (typesafe.ai) is a fast classifier the two hooks can consult instead of relying on their fixed rules alone.

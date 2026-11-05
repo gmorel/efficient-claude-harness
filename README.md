@@ -67,6 +67,8 @@ Dotted arrows from the two hooks are notes added to Claude's context, never an a
 | `/ech:delegate-to-external-ai` | command | The before-and-after checklist for a delegation-service job. |
 | `route-gate` | hook, on edits | Catches a Composer-sized change being hand-written and suggests a lane. Warn-only by default. |
 | `errand-router` | hook, on Bash and Read | Catches three or more read-only errands in a row and suggests `ech:code-explorer`. Warn-only by default. |
+| `ELI5` | output style | One card per turn: a single blockquote, one marker per paragraph, one bold verdict, and every question asked with the question tool instead of buried in prose. |
+| `card-guard` | hook, on Stop | Refuses a final reply that is not that card. Off until you set `CARD_GUARD`. |
 | `harness-dashboard` | scripts | The page in the recording above. |
 
 The plugin has no npm dependencies of its own: Node built-ins only.
@@ -131,12 +133,15 @@ Install only what the lanes you use need.
 
 ## Switches
 
-Both hooks only add a note to Claude's context. Neither blocks anything unless you opt in.
+The two routing hooks only add a note to Claude's context, and the card guard does nothing at all, until you opt in.
 
 | Hook | Off | Warn (default) | Block |
 | --- | --- | --- | --- |
 | `route-gate` | `ROUTE_GATE=off` | `ROUTE_GATE=warn` | `ROUTE_GATE=deny`, or `{"mode":"deny"}` in `<data>/route-gate.json` |
 | `errand-router` | `ERRAND_ROUTER=off`, or a `<data>/errand-router.off` file | `ERRAND_ROUTER=warn` | `ERRAND_ROUTER=block`, from the fifth errand in a row |
+| `card-guard` | `CARD_GUARD` unset (default), or a `<data>/card-guard.off` file | `CARD_GUARD=log` | `CARD_GUARD=block` (not a card at all), `CARD_GUARD=strict` (every fault) |
+
+`card-guard` is the Stop hook behind the `ELI5` output style: the style describes one card per turn, the hook refuses a reply that is not one. Select the style with `/output-style`, then turn the hook on. [How, and why it is off by default](docs/reference.md#the-card-and-its-guard).
 
 To turn both off without uninstalling, disable the plugin with `/plugin`.
 Thresholds, silence rules, the control group and the opt-in Jev classifier are in [docs/reference.md](docs/reference.md).
@@ -144,7 +149,7 @@ Thresholds, silence rules, the control group and the opt-in Jev classifier are i
 ## Where runtime data goes
 
 Ledgers, shadow-run patch pairs, Astra job state and the dashboard's page and cache go to `~/.claude/plugins/data/ech-efficient-claude-harness/`, which Claude Code deletes on uninstall unless you pass `--keep-data`.
-Set `HARNESS_DATA_DIR` to keep the history somewhere durable, or override one file at a time with `COMPOSER_LANE_LOG`, `DELEGATE_LEDGER`, `ROUTING_LEDGER`, `ERRAND_ROUTER_LEDGER`, `AGENT_RUNS_LEDGER` or `HARNESS_DASHBOARD_OUT`.
+Set `HARNESS_DATA_DIR` to keep the history somewhere durable, or override one file at a time with `COMPOSER_LANE_LOG`, `DELEGATE_LEDGER`, `ROUTING_LEDGER`, `ERRAND_ROUTER_LEDGER`, `AGENT_RUNS_LEDGER`, `CARD_GUARD_LEDGER` or `HARNESS_DASHBOARD_OUT`.
 Run a script by hand, with neither variable set, and it falls back to `~/.claude/harness-data/`.
 
 ## Tests
