@@ -1,7 +1,7 @@
 {
   "name": "ech-coder",
   "version": "0.1.0",
-  "description": "Coding lanes: ai-coder (Cursor Composer) and ai-coder-high (delegation service) with the route-gate edit hook, composer-merger, and the delegation skill and command.",
+  "description": "Coding lanes: the ai-coder front asks Jev which lane runs a change, ai-coder-average (Cursor Composer) or ai-coder-high (delegation service), with the route-gate edit hook, composer-merger, and the delegation skill and command.",
   "author": {
     "name": "gmorel"
   },

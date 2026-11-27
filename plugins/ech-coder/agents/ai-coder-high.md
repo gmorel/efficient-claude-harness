@@ -1,6 +1,6 @@
 ---
 name: ai-coder-high
-description: Guarded coding lane. Use only when a code change touches migrations, auth, payments, secrets, CI or git hooks. Sends the job to the delegation service — Claude Code running elsewhere, same models and effort levels — and verifies the patch here; runs locally instead when the job needs the live repository. Commits nothing, needs a written plan first.
+description: Guarded coding lane, the one the front `ai-coder` runs when Jev picks high or Jev cannot answer. Call it by name only when a code change touches migrations, auth, payments, secrets, CI or git hooks. Sends the job to the delegation service — Claude Code running elsewhere, same models and effort levels — and verifies the patch here; runs locally instead when the job needs the live repository. Commits nothing, needs a written plan first.
 tools: Bash, Read, Write
 model: haiku
 ---
@@ -32,7 +32,9 @@ these two paths cannot disagree.
 ## Take only when
 1. **Guarded path** — migrations, auth, payments, secrets, CI, git hooks (project may extend; unsure = guarded).
 
-Else → `ech-coder:ai-coder`.
+Else → `ech-coder:ai-coder-average`.
+
+When the front `ech-coder:ai-coder` sent you here, the lane is already decided (Jev chose it, or Jev could not answer and the safe lane won): skip this section and do not send the job back.
 
 ## Plan first
 No bare tasks.
@@ -103,7 +105,7 @@ For the local run:
 ```
 CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" node "${CLAUDE_PLUGIN_ROOT}/scripts/composer-run.mjs" check --repo "<repo-root>" --test-cmd "<verify command>"
 ```
-Same decision table as `ech-coder:ai-coder`.
+Same decision table as `ech-coder:ai-coder-average`.
 The remote lane runs the verify command itself, before and after, and records both.
 Either way, on an irreversible diff recommend a human read regardless — the check reasons about tests, not blast radius.
 
