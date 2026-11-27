@@ -1,0 +1,14 @@
+{
+  "name": "ech-context",
+  "version": "0.1.0",
+  "description": "Session-size hint and compact-guard hooks: tell a long session to start fresh and keep the summary of an automatic compaction useful.",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "keywords": [
+    "context",
+    "compaction"
+  ],
+  "license": "MIT"
+}
