@@ -1,0 +1,14 @@
+{
+  "name": "ech-pre-postmortem",
+  "version": "0.1.0",
+  "description": "The pre-post-mortem risk ritual: an Opus agent and a slash command that imagine a change already failed and work back to the causes.",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "keywords": [
+    "risk",
+    "pre-mortem"
+  ],
+  "license": "MIT"
+}
