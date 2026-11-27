@@ -44,7 +44,7 @@ Avoid enabling `ech` together with a split plugin that carries the same hook: bo
 | Directory | What is in it |
 |---|---|
 | [`.claude-plugin/`](.claude-plugin/README.md) | The marketplace manifest: the list of plugins. |
-| [`.github/`](.github/README.md) | The CI workflow that validates and tests every plugin. |
+| [`.github/`](.github/workflows/plugins.yml) | The CI workflow that validates and tests every plugin. |
 | [`ai-coder/`](ai-coder/README.md) | The animated diagram above and the skill that rebuilds it. Not a plugin. |
 | [`docs/`](docs/README.md) | Images and the long reference. |
 | [`lib/`](lib/README.md) | Files shared by several plugins, kept in sync by a script. |
