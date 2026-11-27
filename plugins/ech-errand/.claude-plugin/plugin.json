@@ -1,0 +1,15 @@
+{
+  "name": "ech-errand",
+  "version": "0.1.0",
+  "description": "Errand router: a PreToolUse hook that spots runs of read-only errands in the main thread and nudges (or, in enforce projects, denies) toward the Haiku code-explorer.",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "keywords": [
+    "routing",
+    "errands",
+    "haiku"
+  ],
+  "license": "MIT"
+}

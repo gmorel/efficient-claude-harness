@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ech-errand config (ERRAND_ROUTER_CONFIG)",
+  "description": "Every key is optional. A missing or unreadable file means the generic defaults.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "lanes": { "type": "object", "description": "Lane key to description. Replaces the generic lane table in Jev mode.", "additionalProperties": { "type": "string" } },
+    "how": { "type": "string", "description": "The Jev HOW text. Replaces the generic one." },
+    "sshHosts": { "type": "array", "items": { "type": "string" }, "description": "Hosts whose `ssh <host> ...` calls count as errands (Jev mode)." },
+    "liveRunWords": { "type": "array", "items": { "type": "string" }, "description": "Script names whose `node ... <word>` call, run over ssh, stays in the main thread (Jev mode)." },
+    "enforce": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Enforce mode. In a session whose cwd is one of these projects (or inside one) the hook runs in block mode with no holdout group.",
+      "properties": {
+        "projects": { "type": "array", "items": { "type": "string" }, "description": "Absolute project directories. Relative entries never match." }
+      }
+    }
+  }
+}

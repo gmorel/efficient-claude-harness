@@ -1,0 +1,9 @@
+{
+  "enforce": { "projects": ["/absolute/path/to/a/project/that/must/not-run-long-errands"] },
+  "lanes": {
+    "explore": "Explore: searches or reads several repository files to answer where or how something is done.",
+    "main": "main thread, keep it here: git commit / push / merge, and any call that has to stay in the main thread."
+  },
+  "sshHosts": [],
+  "liveRunWords": []
+}
