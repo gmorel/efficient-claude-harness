@@ -1,0 +1,15 @@
+{
+  "name": "ech-claim-check",
+  "version": "0.1.0",
+  "description": "Turn-end claim check: at Stop and SubagentStop, Haiku reads the final text and the turn's tool calls and re-prompts once when a success, fix, count or \"verified\" claim leaves the turn unchecked. Ships an opt-in claim-sentinel observer agent.",
+  "author": { "name": "gmorel" },
+  "license": "MIT",
+  "userConfig": {
+    "rulesFile": {
+      "type": "string",
+      "title": "Project rules file",
+      "description": "Optional file whose text is appended to the Haiku prompt when it exists. Relative paths resolve against the session's working directory; ~/ is your home.",
+      "default": ".claude/claim-check-rules.md"
+    }
+  }
+}
