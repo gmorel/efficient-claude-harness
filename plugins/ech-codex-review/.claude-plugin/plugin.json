@@ -1,0 +1,15 @@
+{
+  "name": "ech-codex-review",
+  "version": "0.1.0",
+  "description": "Read-only cross-model review through Codex: Astra delegation, the OpenAI diff and plan reviewers, and a Codex-first PR review skill. Never writes.",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "keywords": [
+    "codex",
+    "review",
+    "openai"
+  ],
+  "license": "MIT"
+}
