@@ -1,0 +1,14 @@
+{
+  "name": "ech-eli5",
+  "version": "0.1.0",
+  "description": "The ELI5 one-card output style and the card-guard Stop hook that refuses a final reply that is not a card.",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "keywords": [
+    "output-style",
+    "stop-hook"
+  ],
+  "license": "MIT"
+}
