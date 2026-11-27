@@ -1,0 +1,6 @@
+{
+  "description": "ech-mailbox: holds peer messages in a mailbox; they join the next prompt or an hourly digest. Needs function hooks; builds without them ignore the modules key.",
+  "modules": [
+    "./register.ts"
+  ]
+}

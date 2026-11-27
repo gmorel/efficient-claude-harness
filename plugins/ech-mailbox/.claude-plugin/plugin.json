@@ -1,0 +1,26 @@
+{
+  "name": "ech-mailbox",
+  "version": "0.1.0",
+  "description": "Holds messages other Claude sessions send to this one, so they do not break your flow: they wait in a mailbox, join your next prompt, or arrive as one hourly digest. A message that starts with BLOCKING: still wakes the session at once. Off until you switch it on. Needs function hooks (early access).",
+  "author": {
+    "name": "gmorel"
+  },
+  "repository": "https://github.com/gmorel/efficient-claude-harness",
+  "license": "MIT",
+  "keywords": [
+    "mailbox",
+    "peer-messages",
+    "digest",
+    "function-hooks",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "enabled": {
+      "type": "boolean",
+      "title": "Hold peer messages in a mailbox",
+      "description": "When on, a message from another session waits in the mailbox unless it starts with BLOCKING:. Waiting messages join your next prompt, or arrive as one digest every hour. When off, the mod does nothing.",
+      "default": false
+    }
+  }
+}
