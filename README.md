@@ -46,7 +46,14 @@ Avoid enabling `ech` together with a split plugin that carries the same hook: bo
 | [`.claude-plugin/`](.claude-plugin/README.md) | The marketplace manifest: the list of plugins. |
 | [`.github/`](.github/workflows/plugins.yml) | The CI workflow that validates and tests every plugin. |
 | [`ai-coder/`](ai-coder/README.md) | The animated diagram above and the skill that rebuilds it. Not a plugin. |
+| [`claim-check/`](claim-check/README.md) | The claim check explained, with its own animated diagram. Not a plugin. |
+| [`codex-review/`](codex-review/README.md) | The read-only Codex review explained, with its own animated diagram. Not a plugin. |
+| [`context/`](context/README.md) | The session-size hint and compact guard explained, with its own animated diagram. Not a plugin. |
 | [`docs/`](docs/README.md) | Images and the long reference. |
+| [`eli5/`](eli5/README.md) | The ELI5 card style and its Stop hook explained, with its own animated diagram. Not a plugin. |
+| [`errand/`](errand/README.md) | The errand router explained, with its own animated diagram. Not a plugin. |
+| [`mailbox/`](mailbox/README.md) | The peer-message mailbox explained, with its own animated diagram. Not a plugin. |
+| [`pre-postmortem/`](pre-postmortem/README.md) | The pre-post-mortem ritual explained, with its own animated diagram. Not a plugin. |
 | [`lib/`](lib/README.md) | Files shared by several plugins, kept in sync by a script. |
 | [`plugins/`](plugins/README.md) | The plugins: `ech` and the eight small ones. |
 | [`scripts/`](scripts/README.md) | Repository tooling: the lib sync and the per-plugin test runner. |
