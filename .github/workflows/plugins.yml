@@ -14,8 +14,8 @@ jobs:
       - uses: actions/checkout@v4
       - id: list
         run: |
-          # every folder under plugins/ except the original `ech`, which has its own job below
-          echo "plugins=$(ls plugins | grep -v '^ech$' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+          # every folder (not file) under plugins/ except the original `ech`, which has its own job below
+          echo "plugins=$(find plugins -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -v '^ech$' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
 
   shared-lib:
     runs-on: ubuntu-latest
