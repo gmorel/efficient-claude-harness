@@ -5,8 +5,9 @@ README.md is for humans; read it for behaviour, switches and install steps.
 
 ## What this repo is
 
-A Claude Code plugin marketplace with one plugin, `ech`.
-The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin source is `plugins/ech/`.
+A Claude Code plugin marketplace with the plugin `ech` and eight small plugins split out of it: `ech-coder`, `ech-pre-postmortem`, `ech-claim-check`, `ech-errand`, `ech-codex-review`, `ech-mailbox`, `ech-context`, `ech-eli5`.
+The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin sources are `plugins/<name>/`.
+`plugins/ech` is the original and stays untouched by the split.
 
 ## Layout
 
@@ -22,6 +23,15 @@ The marketplace manifest is `.claude-plugin/marketplace.json`; the plugin source
 - README.md is kept short on purpose. A new switch, flag or edge case goes in `docs/reference.md`; the README changes only when the headline behaviour does.
 - `tests/plugin/run.mjs` holds the plugin-only checks; `tests/plugin/ledger-guard.test.mjs` tests the ledger guard.
 - `tests/parity/run.mjs` compares the plugin hooks to the owner's original hooks.
+
+## The split plugins
+
+- Each `plugins/ech-<name>/` installs alone: its own `.claude-plugin/plugin.json` (version `0.1.0`), README, hooks, agents, scripts and `tests/`.
+- Agent names are namespaced by the plugin name (`ech-coder:ai-coder`).
+- A plugin cannot import from a sibling. Files two plugins share live in `lib/shared/` and are copied into each plugin by `node scripts/sync-lib.mjs`; `node scripts/sync-lib.mjs --check` and `tests/lib-sync.test.mjs` fail on drift. Edit the copy in `lib/shared/`, never the plugin's copy.
+- Per plugin: `node scripts/run-plugin-tests.mjs plugins/<name>` and `claude plugin validate plugins/<name>`. `.github/workflows/plugins.yml` runs both for every plugin.
+- `ech-codex-review` is read-only: never add `--write` or `codex-rescue` there.
+- Project rules never go in a plugin: they plug in through a rules file or `userConfig`.
 
 ## Test before you propose a change
 

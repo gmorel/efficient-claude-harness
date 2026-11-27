@@ -22,6 +22,25 @@ claude plugin install ech@efficient-claude-harness --scope project
 
 The plugin has no `version` field on purpose: each commit is a new version, so you track the repository rather than release numbers.
 
+## One plugin per initiative
+
+`plugins/ech` stays as the whole harness. The same pieces are also split into small plugins you can install alone:
+
+| Plugin | What it is |
+|---|---|
+| `ech-coder` | ai-coder, ai-coder-high, composer-merger, the route-gate hook, the delegation skill and command |
+| `ech-pre-postmortem` | the pre-post-mortem agent and command |
+| `ech-claim-check` | a Haiku turn-end check for unverified claims, with an optional observer agent |
+| `ech-errand` | the errand-router hook (warn, or enforce per project) and the Haiku code-explorer |
+| `ech-codex-review` | read-only Codex review: sol-reviewer, OpenAI reviewers, Astra, a Codex-first PR review skill |
+| `ech-mailbox` | holds peer-session messages until you ask; off by default |
+| `ech-context` | session-size hint and compact guard |
+| `ech-eli5` | the ELI5 one-card output style and its Stop hook |
+
+Each folder has its own README with the install line, which local copy to switch off while you test it, and how to roll back.
+Install one with `/plugin install ech-coder@efficient-claude-harness`.
+Avoid enabling `ech` together with a split plugin that carries the same hook: both would register it.
+
 ## How work flows
 
 ```mermaid
@@ -152,6 +171,10 @@ Run a script by hand, with neither variable set, and it falls back to `~/.claude
 ```bash
 env -u ERRAND_ROUTER_CONFIG HOME="$(mktemp -d)" node tests/plugin/run.mjs   # must exit 0; needs only node and git
 ```
+
+Each split plugin has its own tests: `node scripts/run-plugin-tests.mjs plugins/<name>` and `claude plugin validate plugins/<name>`.
+`node scripts/sync-lib.mjs --check` fails when a shared lib copy has drifted; run it without `--check` to copy `lib/shared/` out again.
+A GitHub Action (`.github/workflows/plugins.yml`) is meant to run all of this for every plugin.
 
 `node tests/parity/run.mjs` is the owner-only check against the original hooks; see [docs/reference.md](docs/reference.md#parity-check-against-the-original-hooks).
 Agents working on this repository follow [AGENTS.md](AGENTS.md).

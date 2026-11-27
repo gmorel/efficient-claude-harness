@@ -9,6 +9,46 @@
       "name": "ech",
       "source": "./plugins/ech",
       "description": "Agents that keep the main conversation small: ai-coder lanes (Cursor Composer, a delegation service), code-explorer, browser-qa, task-reviewer, claim-sentinel, plus warn-only routing hooks."
+    },
+    {
+      "name": "ech-coder",
+      "source": "./plugins/ech-coder",
+      "description": "Coding lanes alone: ai-coder (Cursor Composer), ai-coder-high (delegation service), composer-merger, the route-gate edit hook and the delegation skill and command."
+    },
+    {
+      "name": "ech-pre-postmortem",
+      "source": "./plugins/ech-pre-postmortem",
+      "description": "The pre-post-mortem risk ritual: an Opus agent and a slash command."
+    },
+    {
+      "name": "ech-claim-check",
+      "source": "./plugins/ech-claim-check",
+      "description": "A Haiku turn-end check that flags success or count claims made without a ground-truth check, with an optional claim-sentinel observer."
+    },
+    {
+      "name": "ech-errand",
+      "source": "./plugins/ech-errand",
+      "description": "The errand router hook (warn, or enforce per project) plus the Haiku code-explorer agent."
+    },
+    {
+      "name": "ech-codex-review",
+      "source": "./plugins/ech-codex-review",
+      "description": "Read-only cross-model review through Codex: sol-reviewer, OpenAI diff and plan reviewers, Astra, and a Codex-first PR review skill."
+    },
+    {
+      "name": "ech-mailbox",
+      "source": "./plugins/ech-mailbox",
+      "description": "Holds peer-session messages until you ask, with an hourly digest and a /mailbox command. Off by default."
+    },
+    {
+      "name": "ech-context",
+      "source": "./plugins/ech-context",
+      "description": "Session-size hint and compact-guard hooks for long sessions."
+    },
+    {
+      "name": "ech-eli5",
+      "source": "./plugins/ech-eli5",
+      "description": "The ELI5 one-card output style and the card-guard Stop hook."
     }
   ]
 }

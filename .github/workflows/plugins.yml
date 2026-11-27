@@ -1,0 +1,63 @@
+name: plugins
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      plugins: ${{ steps.list.outputs.plugins }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          # every folder under plugins/ except the original `ech`, which has its own job below
+          echo "plugins=$(ls plugins | grep -v '^ech$' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+
+  shared-lib:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Shared lib copies have not drifted
+        run: node scripts/sync-lib.mjs --check
+      - name: Drift test
+        run: node --test tests/lib-sync.test.mjs
+
+  plugin:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.discover.outputs.plugins) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate ${{ matrix.plugin }}
+        run: claude plugin validate plugins/${{ matrix.plugin }}
+      - name: Test ${{ matrix.plugin }}
+        run: node scripts/run-plugin-tests.mjs plugins/${{ matrix.plugin }}
+
+  ech:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate ech
+        run: claude plugin validate plugins/ech
+      - name: Test ech
+        run: env -u ERRAND_ROUTER_JEV -u JEV_ENV_FILE -u ROUTE_GATE_JEV -u TYPESAFE_AI_JEV_API_KEY node tests/plugin/run.mjs
