@@ -1,10 +1,8 @@
 # efficient-claude-harness
 
-![The harness dashboard replaying four days of work: lanes light up and packets travel out from the main session](docs/harness-dashboard.gif)
+![The main session sends all code to ai-coder, which asks Jev and picks ai-coder-average (Cursor Composer) or ai-coder-high (the delegation service); Codex reviews and the claim sentinel observes. The saved dollars are theoretical.](docs/ai-coder-flow.svg)
 
 A Claude Code plugin, `ech`: agents, skills and hooks that keep your conversation small by sending each piece of work to the cheapest lane that can do it — and one dashboard that shows whether those lanes are still alive.
-
-The recording is a replay of synthetic ledgers. The interface is the real one; the project names in it are invented.
 
 ## Install
 
@@ -40,6 +38,19 @@ The plugin has no `version` field on purpose: each commit is a new version, so y
 Each folder has its own README with the install line, which local copy to switch off while you test it, and how to roll back.
 Install one with `/plugin install ech-coder@efficient-claude-harness`.
 Avoid enabling `ech` together with a split plugin that carries the same hook: both would register it.
+
+## Directory map
+
+| Directory | What is in it |
+|---|---|
+| [`.claude-plugin/`](.claude-plugin/README.md) | The marketplace manifest: the list of plugins. |
+| [`.github/`](.github/README.md) | The CI workflow that validates and tests every plugin. |
+| [`ai-coder/`](ai-coder/README.md) | The animated diagram above and the skill that rebuilds it. Not a plugin. |
+| [`docs/`](docs/README.md) | Images and the long reference. |
+| [`lib/`](lib/README.md) | Files shared by several plugins, kept in sync by a script. |
+| [`plugins/`](plugins/README.md) | The plugins: `ech` and the eight small ones. |
+| [`scripts/`](scripts/README.md) | Repository tooling: the lib sync and the per-plugin test runner. |
+| [`tests/`](tests/README.md) | Repository-level tests. |
 
 ## How work flows
 
@@ -91,6 +102,10 @@ Dotted arrows from the two hooks are notes added to Claude's context, never an a
 The plugin has no npm dependencies of its own: Node built-ins only.
 
 ## The dashboard
+
+![The harness dashboard replaying four days of work: lanes light up and packets travel out from the main session](docs/harness-dashboard.gif)
+
+The recording is a replay of synthetic ledgers. The interface is the real one; the project names in it are invented.
 
 ```bash
 cd plugins/ech/scripts/harness-dashboard
